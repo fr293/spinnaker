@@ -75,7 +75,7 @@ def configure_exposure(cam):
             return False
 
         cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-        #print 'Automatic exposure disabled...'
+        # print 'Automatic exposure disabled...'
 
         # Set exposure time manually; exposure time recorded in microseconds
         #
@@ -94,7 +94,8 @@ def configure_exposure(cam):
             return False
 
         # Ensure desired exposure time does not exceed the maximum
-        exposure_time_to_set = input("Please pick a value for the exposure time between 7 and %s µs (if necessary retype the value):" % (cam.ExposureTime.GetMax()) )
+        exposure_time_to_set = input("Please pick a value for the exposure time between 7 and %s µs (if necessary "
+                                     "retype the value):" % (cam.ExposureTime.GetMax()))
 
         exposure_time_to_set = min(cam.ExposureTime.GetMax(), exposure_time_to_set)
 
@@ -108,19 +109,20 @@ def configure_exposure(cam):
 
     return result
 
-def configure_exposure2(cam,t):
+
+def configure_exposure2(cam, t):
     """
      This function configures a custom exposure time. Automatic exposure is turned
      off in order to allow for the customization, and then the custom setting is
      applied.
 
+     :param t:
      :param cam: Camera to configure exposure for.
      :type cam: CameraPtr
      :return: True if successful, False otherwise.
      :rtype: bool
     """
     print (' ')
-
 
     try:
         result = True
@@ -148,7 +150,7 @@ def configure_exposure2(cam,t):
             return False
 
         cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-        #print 'Automatic exposure disabled...'
+        # print 'Automatic exposure disabled...'
         # Set exposure time manually; exposure time recorded in microseconds
         #
         # *** NOTES ***
@@ -181,8 +183,8 @@ def configure_exposure2(cam,t):
     return result
 
 
-def gain(cam,g):
-    result=True
+def gain(cam, g):
+    result = True
     try:
         cam.GainAuto.SetValue(PySpin.GainAuto_Off)
         cam.Gain.SetValue(g)
@@ -194,7 +196,6 @@ def gain(cam,g):
         result = False
 
     return result
-
 
 
 def reset_exposure(cam):
@@ -230,7 +231,6 @@ def reset_exposure(cam):
     return result
 
 
-
 def print_device_info(cam):
     """
     This function prints the device information of the camera from the transport
@@ -256,7 +256,7 @@ def print_device_info(cam):
             for feature in features:
                 node_feature = PySpin.CValuePtr(feature)
                 print ('%s: %s' % (node_feature.GetName(),
-                                  node_feature.ToString() if PySpin.IsReadable(node_feature) else 'Node not readable'))
+                                   node_feature.ToString() if PySpin.IsReadable(node_feature) else 'Node not readable'))
 
         else:
             print ('Device control information not available.')
@@ -297,7 +297,7 @@ def acquire_images(cam):
         print ('Acquiring images...')
 
         # Get device serial number for filename
-        device_serial_number = ('')
+        device_serial_number = ''
         if cam.TLDevice.DeviceSerialNumber is not None and cam.TLDevice.DeviceSerialNumber.GetAccessMode() == PySpin.RO:
             device_serial_number = cam.TLDevice.DeviceSerialNumber.GetValue()
 
@@ -422,7 +422,6 @@ def main():
 
     # Run example on each camera
     for i, cam in enumerate(cam_list):
-
         print ('Running example for camera %d...' % i)
 
         result &= run_single_camera(cam)
@@ -442,6 +441,7 @@ def main():
 
     raw_input('Done! Press Enter to exit...')
     return result
+
 
 if __name__ == '__main__':
     main()
