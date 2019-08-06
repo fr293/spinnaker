@@ -10,6 +10,8 @@
 # numpy is a numerical processing package, used to manipulate images
 
 import os
+from Tkinter import IntVar
+
 import PySpin
 import matplotlib.pyplot as plt
 import cv2
@@ -28,6 +30,7 @@ from tkinter import filedialog
 import serial
 # some_file.py
 import sys
+
 # insert at 1, 0 is the script path (or '' in REPL)
 sys.path.insert(0, 'D:\Spimm')
 
@@ -38,6 +41,7 @@ sys.path.insert(1, 'C:\Users\User\Dropbox (Cambridge University)\Cambs\PhD\SPIMM
 
 import spimmm_obj as so
 
+
 # register and list cameras
 # ask user for input on the camera to use
 # adjust camera settings for preview mode
@@ -46,7 +50,7 @@ import spimmm_obj as so
 # update window with new preview image every 0.1s
 # if process is terminated, close down camera and finish acquisition
 
-#Function to register the different cameras
+# Function to register the different cameras
 def camera_registration(cam_list, num_cameras):
     print('Number of cameras detected: %d' % num_cameras)
     print (' ')
@@ -54,7 +58,6 @@ def camera_registration(cam_list, num_cameras):
     for i, cam in enumerate(cam_list):
         try:
             print ('Camera number: %d' % i)
-            result = True
 
             # Retrieve TL device nodemap and print device information
             nodemap = cam.GetTLDeviceNodeMap()
@@ -80,27 +83,26 @@ def camera_registration(cam_list, num_cameras):
 
         except PySpin.SpinnakerException as ex:
             print ('Error: %s' % ex)
-            result = False
 
-#Function that allows you to pick which camera you want to use via a graphic interface
+
+# Function that allows you to pick which camera you want to use via a graphic interface
 def user_selection(cam_list, num_cameras):
+    # Initiating a tkinter window
+    root = Tk()
 
-    #Initiating a tkinter window
-    root=Tk()
+    # We will save in res the number of the camera that's been selected
+    res = [3]
 
-    #We will save in res the number of the camera that's been selected
-    res=[3]
-
-    #This function will save the number of the camera that has been selected and then destroy the window in order to get to the preview
+    # This function will save the number of the camera that has been selected and then destroy the window in order to
+    # get to the preview
     def nextstep():
-        res[0]=v0.get()
+        res[0] = v0.get()
         root.destroy()
-
 
     labelu1 = Label(root, text="'Number of cameras detected: %d'" % num_cameras)
     labelu1.pack()
 
-    labelu2 = Label(root, text=" " )
+    labelu2 = Label(root, text=" ")
     labelu2.pack()
 
     labelu3 = Label(root, text=" Which camera do you wish to use? ", bg="yellow")
@@ -109,7 +111,7 @@ def user_selection(cam_list, num_cameras):
     v0 = IntVar()
     v0.set(0)
 
-    #Creating a radiobutton for each camera that can be picked
+    # Creating a radiobutton for each camera that can be picked
     for i, cam in enumerate(cam_list):
 
         nodemap = cam.GetTLDeviceNodeMap()
@@ -119,25 +121,25 @@ def user_selection(cam_list, num_cameras):
         if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
             features = node_device_information.GetFeatures()
             node_feature = PySpin.CValuePtr(features[0])
-            Radiobutton(root, text="%s: %s"  % (node_feature.GetName(),node_feature.ToString()), variable=v0, value=i).pack()
+            Radiobutton(root, text="%s: %s" % (node_feature.GetName(), node_feature.ToString()), variable=v0,
+                        value=i).pack()
 
     Button(text='Confirm', command=nextstep).pack()
     root.mainloop()
 
-
-    return (res[0])
+    return res[0]
 
 
 def camera_settings(cam):
     expo.configure_exposure(cam)
 
-    return (1)
+    return 1
 
-#This function gets one image from the selected camera every time it is called upin
+
+# This function gets one image from the selected camera every time it is called upin
 def acquire_images(cam, nodemap_tldevice):
     global image_data
     try:
-
 
         # device_serial_number = ''
         node_device_serial_number = PySpin.CStringPtr(nodemap_tldevice.GetNode('DeviceSerialNumber'))
@@ -145,7 +147,7 @@ def acquire_images(cam, nodemap_tldevice):
             # device_serial_number = node_device_serial_number.GetValue()
 
             try:
-                #With getnewimage we can save the current image
+                # With getnewimage we can save the current image
                 image_result = cam.GetNextImage()
 
                 if image_result.IsIncomplete():
@@ -157,7 +159,7 @@ def acquire_images(cam, nodemap_tldevice):
                     # height = image_result.GetHeight()
                     # print 'Grabbed Image %d, width = %d, height = %d' % (i, width, height)
 
-                    #Now the saved image has to be modified in order to be read as a numpy array
+                    # Now the saved image has to be modified in order to be read as a numpy array
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_data = image_converted.GetNDArray()
                     image_result.Release()
@@ -171,13 +173,14 @@ def acquire_images(cam, nodemap_tldevice):
         print ('Error: %s' % ex)
         return False
 
-    #The numpy array that contains the image is just modified in order to get a smaller image
+    # The numpy array that contains the image is just modified in order to get a smaller image
     image_data2 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
 
     return image_data2
 
-#This function sets up the camera so that it's ready for acquisition
-def create_window(cam,  nodemap):
+
+# This function sets up the camera so that it's ready for acquisition
+def create_window(cam, nodemap):
     try:
 
         node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode('AcquisitionMode'))
@@ -218,16 +221,17 @@ def create_window(cam,  nodemap):
         print ('Error: %s' % ex)
         return False
 
-    return (1)
+    return 1
 
-#If you're using cv2 to display the image this function can update the frames
-def update_window(cam, nodemap_tldevice, time):
+
+# If you're using cv2 to display the image this function can update the frames
+def update_window(cam, nodemap_tldevice):
     image = acquire_images(cam, nodemap_tldevice)
     cv2.imshow('preview', image)
     cv2.waitKey(1)
 
 
-#This function resets the settings of contrast and gain to their original values, and then ends acquisition
+# This function resets the settings of contrast and gain to their original values, and then ends acquisition
 def terminate(cam):
     # plt.close()
 
@@ -237,16 +241,15 @@ def terminate(cam):
     # Deinitialize camera
     cam.DeInit()
 
-
-
-    return (True)
+    return True
 
 
 def main():
-
-    #----------------------
+    # ----------------------
 
     # This function will modify the settings once called upon
+    global num
+
     def recupere():
         aux[0] = float(entree1.get())
         aux[1] = float(entree2.get())
@@ -264,7 +267,8 @@ def main():
         new_im.save(file)
         print 'Image saved as %s' % file
 
-    # The following functions allow the user to save a video from the moment they press start recording to the moment they press stop recording
+    # The following functions allow the user to save a video from the moment they press start recording to the moment
+    # they press stop recording
 
     vid = [0]
     vidname = ['hh']
@@ -283,15 +287,15 @@ def main():
 
         fourcc = cv2.VideoWriter_fourcc(*'MP42')
 
-        video = cv2.VideoWriter('%s' % name, fourcc, float(10), (image5[0].shape[1], image5[0].shape[0]))
+        video2 = cv2.VideoWriter('%s' % name, fourcc, float(10), (image5[0].shape[1], image5[0].shape[0]))
         w, h = image5[0].shape
         ret = np.empty((w, h, 3), dtype=np.uint8)
         for frame in frame_array:
             ret[:, :, 0] = frame
             ret[:, :, 1] = frame
             ret[:, :, 2] = frame
-            video.write(ret)
-        video.release()
+            video2.write(ret)
+        video2.release()
         vid[0] = 0
         print('Video saved as %s' % name)
 
@@ -305,7 +309,8 @@ def main():
         vidname[0] = filedialog.asksaveasfile(mode='w', defaultextension='avi').name
         vid[0] = 2
 
-    # This function, once called upon, will allow the while loop in the mainloop threaded function to stop and will then close the window
+    # This function, once called upon, will allow the while loop in the mainloop threaded function to stop and will
+    # then close the window
     def close():
         restart[0] = 1
         aux[-1] = 1
@@ -321,7 +326,8 @@ def main():
     def resume():
         stop[0] = 0
 
-    # The following functions are designed to thread a process that activates the magnets with the parameters chosen by the user
+    # The following functions are designed to thread a process that activates the magnets with the parameters chosen
+    # by the user
     def magnet():
 
         conf = direction.get()
@@ -383,59 +389,56 @@ def main():
     # The following functions allow you to run automated experiments
 
     def automated1():
-        auto[0]=1
+        auto[0] = 1
         aux[-1] = 1
         time.sleep(0.2)
         fenetre.destroy()
-
-
 
     rows = 50
     columns = 8
     params2 = [[]]
 
     def automated2():
-        auxi2=columns
-        auxi=0
-        while auxi2==columns and auxi<rows:
+        auxi2 = columns
+        auxi = 0
+        while auxi2 == columns and auxi < rows:
 
-            auxi2=0
+            auxi2 = 0
             for j in range(columns):
-                if Value[auxi][j].get()!='':
+                if Value[auxi][j].get() != '':
+                    auxi2 = auxi2 + 1
+            if auxi2 == columns:
+                auxi = auxi + 1
 
-                    auxi2=auxi2+1
-            if auxi2==columns:
-                auxi=auxi+1
+        params2[0] = [[0 for j in range(columns)] for i in range(auxi)]
 
-        params2[0]=[[0 for j in range(columns)]for i in range(auxi)]
+        for rank in range(0, auxi):
+            params2[0][rank] = [Value[rank][0].get(), int(Value[rank][1].get()), int(Value[rank][2].get()),
+                                float(Value[rank][3].get()), float(Value[rank][4].get()), int(Value[rank][5].get()),
+                                float(Value[rank][6].get()), int(Value[rank][7].get())]
 
-
-
-        for i in range(0, auxi):
-            params2[0][i]=[Value[i][0].get(),int(Value[i][1].get()),int(Value[i][2].get()),float(Value[i][3].get()),float(Value[i][4].get()),int(Value[i][5].get()),float(Value[i][6].get()),int(Value[i][7].get())]
-
-        auto[0]=2
+        auto[0] = 2
         aux[-1] = 1
         time.sleep(0.2)
         fenetre.destroy()
 
-    #Temperature control
+    # Temperature control
 
     def set_temp():
-        temp[0]+=1
+        temp[0] += 1
 
-    temp=[2]
+    temp = [2]
 
-    #Sweep volume control
+    # Sweep volume control
 
     def set_sweeplim():
         print('ho')
 
-    #Laser control functions
+    # Laser control functions
 
     def onlaser1():
         spim.open_ports()
-        spim.lst1=True
+        spim.lst1 = True
         spim.laser_power()
 
     def onlaser2():
@@ -454,33 +457,28 @@ def main():
         spim.las2.close()
 
     def powlaser1():
-        pow=float(valueL1.get())/1000.
-        spim.pwr1=pow
+        pow = float(valueL1.get()) / 1000.
+        spim.pwr1 = pow
         spim.laser_power()
 
     def powlaser2():
-        pow=float(valueL2.get())/1000.
-        spim.pwr2 = pow
+        pow2 = float(valueL2.get()) / 1000.
+        spim.pwr2 = pow2
         spim.laser_power()
 
-
     def stage():
-        pos=float(valueS.get())
+        pos = float(valueS.get())
         spim.focus(pos)
 
+    # -----------------------------------------------------------
+    restart = [0]
+    first = 0
+    auto = [0]
 
+    spim = so.SPIMMM()
 
+    while restart[0] == 0:
 
-    #-----------------------------------------------------------
-    restart=[0]
-    first=0
-    auto=[0]
-
-    spim=so.SPIMMM()
-
-    while restart[0]==0:
-
-        t = 0.05
         # Retrieve singleton reference to system object
         system = PySpin.System.GetInstance()
 
@@ -492,8 +490,8 @@ def main():
         cam_list = system.GetCameras()
 
         num_cameras = cam_list.GetSize()
-        if first==0:
-            num=user_selection(cam_list,num_cameras)
+        if first == 0:
+            num = user_selection(cam_list, num_cameras)
         # Pick the camera from the list
         cam = cam_list[num]
 
@@ -516,7 +514,6 @@ def main():
         aux = np.array([1., 0., 10, 4., 1., 0])
 
         # Time between each frame in s
-        t = 0.1
 
         # Initiating the window for the preview's GUI
         fenetre = Tk()
@@ -524,29 +521,31 @@ def main():
 
         def correct(inp):
             time.sleep(0.1)
-            if inp.isdigit() or inp=='':
-                return(True)
+            if inp.isdigit() or inp == '':
+                return True
             else:
-                return(False)
+                return False
+
         reg = fenetre.register(correct)
 
         def correctf(inp):
             time.sleep(0.1)
-            if inp.replace(".", "", 1).isdigit() or inp=='':
-                return(True)
+            if inp.replace(".", "", 1).isdigit() or inp == '':
+                return True
             else:
-                return(False)
+                return False
+
         regf = fenetre.register(correctf)
 
         def correctfn(inp):
             time.sleep(0.1)
-            if inp=='':
-                return(True)
+            if inp == '':
+                return True
 
-            elif inp[0]=='-':
-                return(inp.replace(".", "", 1).replace("-", "", 1).isdigit())
+            elif inp[0] == '-':
+                return inp.replace(".", "", 1).replace("-", "", 1).isdigit()
             else:
-                return(inp.replace(".", "", 1).isdigit())
+                return inp.replace(".", "", 1).isdigit()
 
         regfn = fenetre.register(correctfn)
 
@@ -573,7 +572,7 @@ def main():
         value6 = StringVar()
         value6.set(1)
 
-                # labels, entries and button for the different parameters
+        # labels, entries and button for the different parameters
 
         label5 = Label(fenetre, text="Parameters", bg="cyan")
         label5.place(x=855, y=0)
@@ -581,31 +580,31 @@ def main():
         label6 = Label(fenetre, text="Gamma", bg="yellow")
         label6.place(x=700, y=30)
 
-        entree6 = Entry(fenetre, textvariable=value6, width=10, validate="key",validatecommand=(regf,'%P'))
+        entree6 = Entry(fenetre, textvariable=value6, width=10, validate="key", validatecommand=(regf, '%P'))
         entree6.place(x=630, y=30)
 
         label1 = Label(fenetre, text="Contrast", bg="yellow")
         label1.place(x=700, y=60)
 
-        entree1 = Entry(fenetre, textvariable=value1, width=10, validate="key",validatecommand=(regf,'%P'))
+        entree1 = Entry(fenetre, textvariable=value1, width=10, validate="key", validatecommand=(regf, '%P'))
         entree1.place(x=630, y=60)
 
         label2 = Label(fenetre, text="Brightness", bg="yellow")
         label2.place(x=835, y=30)
 
-        entree2 = Entry(fenetre, textvariable=value2, width=10, validate="key",validatecommand=(regfn,'%P'))
+        entree2 = Entry(fenetre, textvariable=value2, width=10, validate="key", validatecommand=(regfn, '%P'))
         entree2.place(x=765, y=30)
 
         label3 = Label(fenetre, text="Exposure time in us (between 7 and 29999998)", bg="yellow")
         label3.place(x=835, y=60)
 
-        entree3 = Entry(fenetre, textvariable=value3, width=10, validate="key",validatecommand=(reg,'%P'))
+        entree3 = Entry(fenetre, textvariable=value3, width=10, validate="key", validatecommand=(reg, '%P'))
         entree3.place(x=765, y=60)
 
         label4 = Label(fenetre, text="Gain in Db (below 47.994294)", bg="yellow")
         label4.place(x=985, y=30)
 
-        entree4 = Entry(fenetre, textvariable=value4, width=10, validate="key",validatecommand=(regf,'%P'))
+        entree4 = Entry(fenetre, textvariable=value4, width=10, validate="key", validatecommand=(regf, '%P'))
         entree4.place(x=915, y=30)
 
         bouton1 = Button(fenetre, text="Change settings", command=recupere)
@@ -644,8 +643,7 @@ def main():
         label7 = Label(fenetre, text="Magnets control", bg="Cyan")
         label7.place(x=950, y=110)
 
-
-        #Select a direction for pulling with the magnet
+        # Select a direction for pulling with the magnet
         direction = IntVar()
         direction.set(1)
 
@@ -660,7 +658,7 @@ def main():
         boutonW = Radiobutton(fenetre, text="West (1)", variable=direction, value=1)
         boutonW.place(x=920, y=200)
 
-        #Select an amplitude
+        # Select an amplitude
 
         amplitude = IntVar()
         amplitude.set(1)
@@ -680,7 +678,7 @@ def main():
         valued = StringVar()
         valued.set(1)
 
-        duration = Entry(fenetre, textvariable=valued, width=10,validate="key",validatecommand=(regf,'%P'))
+        duration = Entry(fenetre, textvariable=valued, width=10, validate="key", validatecommand=(regf, '%P'))
         duration.place(x=1075, y=230)
         boutonM1 = Button(fenetre, text="Run magnet for following duration (in s):", command=start_magnet)
         boutonM1.place(x=845, y=227)
@@ -694,12 +692,10 @@ def main():
         valueT = StringVar()
         valueT.set(2)
 
-
-
         EntreeT = Entry(fenetre, textvariable=valueT, width=10)
         EntreeT.place(x=770, y=270)
 
-        EntreeT.config(validate="key",validatecommand=(reg,'%P'))
+        EntreeT.config(validate="key", validatecommand=(reg, '%P'))
         boutonT1 = Button(fenetre, text="Set the temperature to", command=set_temp)
         boutonT1.place(x=630, y=267)
 
@@ -717,19 +713,19 @@ def main():
         label1 = Label(fenetre, text="Upper limit", bg="yellow")
         label1.place(x=730, y=390)
 
-        entreeSV1 = Entry(fenetre, textvariable=valueSV1, width=10, validate="key",validatecommand=(regfn,'%P'))
+        entreeSV1 = Entry(fenetre, textvariable=valueSV1, width=10, validate="key", validatecommand=(regfn, '%P'))
         entreeSV1.place(x=660, y=390)
 
         label1 = Label(fenetre, text="Lower limit", bg="yellow")
         label1.place(x=730, y=420)
 
-        entreeSV2 = Entry(fenetre, textvariable=valueSV2, width=10, validate="key",validatecommand=(regfn,'%P'))
+        entreeSV2 = Entry(fenetre, textvariable=valueSV2, width=10, validate="key", validatecommand=(regfn, '%P'))
         entreeSV2.place(x=660, y=420)
 
         boutonSV = Button(fenetre, text="Set Sweep volume limits", command=set_sweeplim)
         boutonSV.place(x=660, y=450)
 
-        #Lasers control
+        # Lasers control
 
         valueL1 = StringVar()
         valueL1.set(10)
@@ -752,10 +748,8 @@ def main():
         boutonL3 = Button(fenetre, text="Set laser power (in mW) to:", command=powlaser1)
         boutonL3.place(x=1030, y=332)
 
-        entreeL1 = Entry(fenetre, textvariable=valueL1, width=10, validate="key",validatecommand=(reg,'%P'))
+        entreeL1 = Entry(fenetre, textvariable=valueL1, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL1.place(x=1185, y=335)
-
-
 
         labelL3 = Label(fenetre, text="561 Laser:", bg="yellow")
         labelL3.place(x=830, y=370)
@@ -769,10 +763,10 @@ def main():
         boutonL6 = Button(fenetre, text="Set laser power (in mW) to:", command=powlaser2)
         boutonL6.place(x=1030, y=367)
 
-        entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key",validatecommand=(reg,'%P'))
+        entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL2.place(x=1185, y=370)
 
-        #Stage
+        # Stage
 
         valueS = StringVar()
         valueS.set(1)
@@ -780,10 +774,10 @@ def main():
         boutonS1 = Button(fenetre, text="Set stage to:", command=stage)
         boutonS1.place(x=900, y=420)
 
-        entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key",validatecommand=(regfn,'%P'))
+        entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key", validatecommand=(regfn, '%P'))
         entreeS1.place(x=980, y=420)
 
-        #Automated experiment part
+        # Automated experiment part
 
         labelA1 = Label(fenetre, text="Automated experiment", bg="Cyan")
         labelA1.place(x=550, y=550)
@@ -797,8 +791,7 @@ def main():
         labelA2 = Label(fenetre, text="Design your own automated experiment:")
         labelA2.place(x=500, y=580)
 
-
-        #Labels and buttons for the automated experiment
+        # Labels and buttons for the automated experiment
         labelA3 = Label(fenetre, text="Name", bg="yellow")
         labelA3.place(x=400, y=610)
 
@@ -823,16 +816,11 @@ def main():
         labelA8 = Label(fenetre, text="Temperature", bg="yellow")
         labelA8.place(x=1058, y=610)
 
-
-
-
-        #----------------------
-
-
+        # ----------------------
 
         frame_main = Frame(fenetre, bg="gray")
         frame_main.grid(sticky='news')
-        frame_main.place(x=400,y=630)
+        frame_main.place(x=400, y=630)
 
         # Create a frame for the canvas with non-zero row&column weights
         frame_canvas = Frame(frame_main)
@@ -858,16 +846,17 @@ def main():
         # Add 9-by-5 buttons to the frame
 
         Entree = [[Entry() for j in range(columns)] for i in range(rows)]
-        Value =  [[StringVar() for j in range(columns)] for i in range(rows)]
+        Value = [[StringVar() for j in range(columns)] for i in range(rows)]
 
         for i in range(0, rows):
             for j in range(0, columns):
-                if first==0:
+                if first == 0:
                     Value[i][j].set('')
-                if i==0:
+                if i == 0:
                     Entree[i][j] = Entry(frame_buttons, textvariable=Value[i][j], width=15)
                 else:
-                    Entree[i][j] = Entry(frame_buttons,textvariable=Value[i][j], width=15,validate="key",validatecommand=(regf,'%P'))
+                    Entree[i][j] = Entry(frame_buttons, textvariable=Value[i][j], width=15, validate="key",
+                                         validatecommand=(regf, '%P'))
                 Entree[i][j].grid(row=i, column=j, sticky='news')
 
         # Update buttons frames idle tasks to let tkinter calculate buttons sizes
@@ -882,7 +871,7 @@ def main():
         # Set the canvas scrolling region
         canvas2.config(scrollregion=canvas2.bbox("all"))
 
-        #----------------------
+        # ----------------------
 
         # Placing the first image in the canvas
         image_on_canvas = canvas.create_image(20, 20, anchor=NW, image=image6[0])
@@ -897,7 +886,8 @@ def main():
                     pass
                 # Quick pause
                 time.sleep(0.01)
-                # Acquiring the new image, changing contrast and brightness, and changing its format so that it's compatible with tkinter
+                # Acquiring the new image, changing contrast and brightness, and changing its format so that it's
+                # compatible with tkinter
                 image5[0] = np.clip(aux[0] * acquire_images(cam, nodemap_tldevice) ** (aux[4]) + aux[1], 0, 255)
                 image6[0] = ImageTk.PhotoImage(Image.fromarray(image5[0]), master=fenetre)
                 # Changing the image on the canvas
@@ -907,6 +897,7 @@ def main():
                 labelT.place(x=680, y=300)
 
                 # canvas.itemconfigure(image_on_canvas, image=image6[0])
+
         time.sleep(1)
         thread = threading.Thread(target=main_loop)
         thread.start()
@@ -927,19 +918,19 @@ def main():
         system.ReleaseInstance()
 
         del system
-        if auto[0]==1:
+        if auto[0] == 1:
             sae.function()
-        if auto[0]==2:
-            sae.function(2,params2[0])
-        auto[0]=0
-        first=1
+        if auto[0] == 2:
+            sae.function(2, params2[0])
+        auto[0] = 0
+        first = 1
 
     spim.close_ports()
 
     print(' ')
     print('blackfly_preview successfully exited')
 
-    return (True)
+    return True
 
 
 if __name__ == '__main__':
