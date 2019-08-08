@@ -25,19 +25,13 @@ import thread as th
 from tkinter import *
 import threading
 from PIL import Image, ImageTk
-import power_supply_current_controller_copy as pscc
+import power_supply_current_controller as pscc
 from tkinter import filedialog
 import serial
 # some_file.py
 import sys
 
-# insert at 1, 0 is the script path (or '' in REPL)
-sys.path.insert(0, 'D:\Spimm')
-
 import spimm_automated_experiment as sae
-
-# insert at 1, 0 is the script path (or '' in REPL)
-sys.path.insert(1, 'C:\Users\User\Dropbox (Cambridge University)\Cambs\PhD\SPIMMM\microscope_control')
 
 import spimmm_obj as so
 

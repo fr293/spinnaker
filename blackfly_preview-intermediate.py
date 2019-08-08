@@ -22,7 +22,6 @@ import msvcrt
 import thread as th
 
 
-
 # register and list cameras
 # ask user for input on the camera to use
 # adjust camera settings for preview mode
@@ -37,7 +36,6 @@ def camera_registration(cam_list, num_cameras):
     for i, cam in enumerate(cam_list):
         try:
             print ('Camera number: %d' % i)
-            result = True
 
             # Retrieve TL device nodemap and print device information
             nodemap = cam.GetTLDeviceNodeMap()
@@ -50,7 +48,8 @@ def camera_registration(cam_list, num_cameras):
                     features = node_device_information.GetFeatures()
                     node_feature = PySpin.CValuePtr(features[0])
                     print ('%s: %s' % (node_feature.GetName(),
-                                                      node_feature.ToString() if PySpin.IsReadable(node_feature) else 'Node not readable'))
+                                       node_feature.ToString() if PySpin.IsReadable(
+                                           node_feature) else 'Node not readable'))
 
                 else:
                     print ('Device control information not available.')
@@ -62,23 +61,22 @@ def camera_registration(cam_list, num_cameras):
 
         except PySpin.SpinnakerException as ex:
             print ('Error: %s' % ex)
-            result = False
 
 
-def user_selection(cam_list, num_cameras):
+def user_selection(num_cameras):
     number = -1
 
     while number < 0 or number >= num_cameras:
         number = int(input("Please enter the number of the camera you wish to use:"))
     print ('You have selected camera number: %d' % number)
 
-    return (number)
+    return number
 
 
 def camera_settings(cam):
     expo.configure_exposure(cam)
 
-    return (1)
+    return 1
 
 
 def acquire_images(cam, nodemap_tldevice):
@@ -116,7 +114,7 @@ def acquire_images(cam, nodemap_tldevice):
         print ('Error: %s' % ex)
         return False
 
-    image_data2=cv2.resize(image_data, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_CUBIC)
+    image_data2 = cv2.resize(image_data, None, fx=0.2, fy=0.2, interpolation=cv2.INTER_CUBIC)
 
     return image_data2
 
@@ -158,7 +156,7 @@ def create_window(cam, nodemap_tldevice, nodemap):
         cam.BeginAcquisition()
         print ('Acquiring images...')
         image = acquire_images(cam, nodemap_tldevice)
-        cv2.imshow('preview',image)
+        cv2.imshow('preview', image)
         cv2.waitKey(1)
 
 
@@ -166,27 +164,25 @@ def create_window(cam, nodemap_tldevice, nodemap):
         print ('Error: %s' % ex)
         return False
 
-    return (1)
+    return 1
 
 
-
-def update_window(cam, nodemap_tldevice, time):
+def update_window(cam, nodemap_tldevice):
     image = acquire_images(cam, nodemap_tldevice)
     cv2.imshow('preview', image)
     cv2.waitKey(1)
 
 
 def terminate(cam):
-    #plt.close()
+    # plt.close()
 
     expo.reset_exposure(cam)
     cam.EndAcquisition()
 
-    return (True)
+    return True
 
 
 def main():
-    t = 0.05
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
 
@@ -201,7 +197,7 @@ def main():
 
     camera_registration(cam_list, num_cameras)
 
-    num = user_selection(cam_list, num_cameras)
+    num = user_selection(num_cameras)
 
     # Pick the camera from the list
     cam = cam_list[num]
@@ -216,52 +212,43 @@ def main():
 
     expo.configure_exposure(cam)
 
-
-
     create_window(cam, nodemap_tldevice, nodemap)
 
-
-
-    def input_thread(L,cam):
+    def input_thread(L, cam):
         while True:
             aux = raw_input()
             print(L)
-            if aux == 'e': break
+            if aux == 'e':
+                break
             if aux == 's':
                 camera_settings(cam)
         L.append('e')
 
+    # def image2_thread(image1,image2):
+    #  while True:
+    #       image2[0] = image1[0].Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
 
-
-
-    #def image2_thread(image1,image2):
-      #  while True:
-     #       image2[0] = image1[0].Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
-
-    #def image3_thread(image2,image3):
+    # def image3_thread(image2,image3):
     #    while True:
     #        image3[0] = image2[0].GetNDArray()
 
-
-
     L = [0]
-    th.start_new_thread(input_thread, (L,cam,))
+    th.start_new_thread(input_thread, (L, cam,))
 
-    #image1=[cam.GetNextImage()]
-    #th.start_new_thread(image1_thread, (image1,cam,))
+    # image1=[cam.GetNextImage()]
+    # th.start_new_thread(image1_thread, (image1,cam,))
 
-    #image2 = [image1[0].Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)]
-    #th.start_new_thread(image2_thread, (image1,image2,))
+    # image2 = [image1[0].Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)]
+    # th.start_new_thread(image2_thread, (image1,image2,))
 
-    #image3 = [image2[0].GetNDArray()]
-    #th.start_new_thread(image3_thread, (image2,image3,))
+    # image3 = [image2[0].GetNDArray()]
+    # th.start_new_thread(image3_thread, (image2,image3,))
 
     print (' ')
     print('Press e to exit or s to change settings')
 
-    while L[-1]!='e':
-
-        update_window(cam,nodemap_tldevice,t)
+    while L[-1] != 'e':
+        update_window(cam, nodemap_tldevice)
 
     # while True:
     #   update_window(cam, nodemap_tldevice,time)
@@ -278,7 +265,7 @@ def main():
 
     raw_input('Done! Press Enter to exit...')
 
-    return (True)
+    return True
 
 
 if __name__ == '__main__':
