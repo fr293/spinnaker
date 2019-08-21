@@ -253,6 +253,58 @@ def create_window(cam, nodemap):
 
         print('Acquisition mode set to continuous...')
 
+        # -------------------------
+        # Buffer handling
+
+        # Retrieve Stream Parameters device nodemap
+        s_node_map = cam.GetTLStreamNodeMap()
+
+        # Retrieve Buffer Handling Mode Information
+        handling_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferHandlingMode'))
+        if not PySpin.IsAvailable(handling_mode) or not PySpin.IsWritable(handling_mode):
+            print 'Unable to set Buffer Handling mode (node retrieval). Aborting...\n'
+            return False
+
+        handling_mode_entry = PySpin.CEnumEntryPtr(handling_mode.GetCurrentEntry())
+        if not PySpin.IsAvailable(handling_mode_entry) or not PySpin.IsReadable(handling_mode_entry):
+            print 'Unable to set Buffer Handling mode (Entry retrieval). Aborting...\n'
+            return False
+
+        # Set stream buffer Count Mode to manual
+        stream_buffer_count_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferCountMode'))
+        if not PySpin.IsAvailable(stream_buffer_count_mode) or not PySpin.IsWritable(stream_buffer_count_mode):
+            print 'Unable to set Buffer Count Mode (node retrieval). Aborting...\n'
+            return False
+
+        stream_buffer_count_mode_manual = PySpin.CEnumEntryPtr(stream_buffer_count_mode.GetEntryByName('Manual'))
+        if not PySpin.IsAvailable(stream_buffer_count_mode_manual) or not PySpin.IsReadable(
+                stream_buffer_count_mode_manual):
+            print 'Unable to set Buffer Count Mode entry (Entry retrieval). Aborting...\n'
+            return False
+
+        stream_buffer_count_mode.SetIntValue(stream_buffer_count_mode_manual.GetValue())
+        #print 'Stream Buffer Count Mode set to manual...'
+
+        # Retrieve and modify Stream Buffer Count
+        buffer_count = PySpin.CIntegerPtr(s_node_map.GetNode('StreamBufferCountManual'))
+        if not PySpin.IsAvailable(buffer_count) or not PySpin.IsWritable(buffer_count):
+            print 'Unable to set Buffer Count (Integer node retrieval). Aborting...\n'
+            return False
+
+        # Display Buffer Info
+        #print '\nDefault Buffer Handling Mode: %s' % handling_mode_entry.GetDisplayName()
+        #print 'Default Buffer Count: %d' % buffer_count.GetValue()
+        #print 'Maximum Buffer Count: %d' % buffer_count.GetMax()
+
+        #buffer_count.SetValue(NUM_BUFFERS)
+
+        #print 'Buffer count now set to: %d' % buffer_count.GetValue()
+
+        handling_mode_entry = handling_mode.GetEntryByName('NewestOnly')
+        handling_mode.SetIntValue(handling_mode_entry.GetValue())
+        print '\nBuffer Handling Mode has been set to %s \n' % handling_mode_entry.GetDisplayName()
+
+        # ---------------------
         #  Begin acquiring images
         #
         #  *** NOTES ***
@@ -265,7 +317,7 @@ def create_window(cam, nodemap):
         #  *** LATER ***
         #  Image acquisition must be ended when no more images are needed.
         cam.BeginAcquisition()
-        print ('Acquiring images...')
+        print ('Acquiring images...\n\n')
 
     except PySpin.SpinnakerException as ex:
         print ('Error: %s' % ex)
