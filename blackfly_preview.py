@@ -693,6 +693,9 @@ def main():
         boutonT1 = Button(fenetre, text="Set the temperature to", command=set_temp)
         boutonT1.place(x=630, y=267)
 
+        labelT = Label(fenetre, text=" TEMPERATURE: %s" % temp[0], bg='white')
+        labelT.place(x=680, y=300)
+
         # Volume sweep section
 
         labelSV = Label(fenetre, text="Sweep volume limits", bg="cyan")
@@ -887,8 +890,8 @@ def main():
                 # Changing the image on the canvas
                 canvas.itemconfigure(image_on_canvas, image=image6[0])
 
-                labelT = Label(fenetre, text=" TEMPERATURE: %s" % temp[0], bg='white')
-                labelT.place(x=680, y=300)
+                labelT.configure(text=" TEMPERATURE: %s" % temp[0])
+
 
                 # canvas.itemconfigure(image_on_canvas, image=image6[0])
 
