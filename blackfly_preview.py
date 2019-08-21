@@ -130,7 +130,7 @@ def camera_settings(cam):
     return 1
 
 
-# This function gets one image from the selected camera every time it is called upin
+# This function gets one image from the selected camera every time it is called upon
 def acquire_images(cam, nodemap_tldevice):
     global image_data
     try:
@@ -172,6 +172,62 @@ def acquire_images(cam, nodemap_tldevice):
 
     return image_data2
 
+def acquire_images2(cam_list):
+    """
+    This function acquires and saves 10 images from each device.
+
+    :param cam_list: List of cameras
+    :type cam_list: CameraList
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+
+    try:
+        result = []
+
+
+
+        # Retrieve, convert, and save images for each camera
+        #
+        # *** NOTES ***
+        # In order to work with simultaneous camera streams, nested loops are
+        # needed. It is important that the inner loop be the one iterating
+        # through the cameras; otherwise, all images will be grabbed from a
+        # single camera before grabbing any images from another.
+
+        for i,cam in enumerate(cam_list):
+            try:
+                # Retrieve next received image and ensure image completion
+                image_result = cam.GetNextImage()
+
+                if image_result.IsIncomplete():
+                    print'Image incomplete with image status %d ... \n' % image_result.GetImageStatus()
+                else:
+                    # Print image information
+                    width = image_result.GetWidth()
+                    height = image_result.GetHeight()
+
+
+                    # Convert image to mono 8
+                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                    image_data = image_converted.GetNDArray()
+                    image_data2 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
+                    result.append(image_data2)
+
+
+
+                # Release image
+                image_result.Release()
+
+
+            except PySpin.SpinnakerException as ex:
+                print'Error: %s' % ex
+
+    except PySpin.SpinnakerException as ex:
+        print'Error: %s' % ex
+
+    return result
 
 # This function sets up the camera so that it's ready for acquisition
 def create_window(cam, nodemap):
@@ -250,8 +306,9 @@ def main():
         aux[2] = int(entree3.get())
         aux[3] = entree4.get()
         aux[4] = 1. / float(entree6.get())
-        expo.configure_exposure2(cam, aux[2])
-        expo.gain(cam, aux[3])
+        for i in range(num_cameras):
+            expo.configure_exposure2(cam_list[i], aux[2])
+            expo.gain(cam_list[i], aux[3])
 
     # This function saves the current frame once called upon
     def save():
@@ -419,14 +476,17 @@ def main():
     # Temperature control
 
     def set_temp():
-        temp[0] += 1
+
+        temp[0]=temp[0]+1
 
     temp = [2]
 
     # Sweep volume control
 
     def set_sweeplim():
-        print('ho')
+        print('')
+
+
 
     # Laser control functions
 
@@ -465,11 +525,27 @@ def main():
         spim.focus(pos)
 
     # -----------------------------------------------------------
+    #threading
+
+    def thread1():
+        res = acquire_images2(cam_list)
+        while True:
+            plt.pause(0.01)
+            for i in range(num_cameras):
+                image5[i] = np.clip(aux[0] * res[i] ** (aux[4]) + aux[1], 0, 255)
+
+    def thread2():
+        while True:
+            plt.pause(0.01)
+            for i in range(num_cameras):
+                image7[:,:,i]=image5[i]*varc[i].get()
+
+    # --------------------
     restart = [0]
     first = 0
     auto = [0]
 
-    spim = so.SPIMMM()
+    #spim = so.SPIMMM()
 
     while restart[0] == 0:
 
@@ -482,27 +558,30 @@ def main():
 
         # Retrieve list of cameras from the system
         cam_list = system.GetCameras()
-
         num_cameras = cam_list.GetSize()
-        if first == 0:
-            num = user_selection(cam_list, num_cameras)
+        #if first == 0:
+        #    num = user_selection(cam_list, num_cameras)
         # Pick the camera from the list
-        cam = cam_list[num]
+        #cam = cam_list[num]
 
         # Initialize camera
-        cam.Init()
+        for cam in cam_list:
+            cam.Init()
 
-        nodemap_tldevice = cam.GetTLDeviceNodeMap()
+        nodemap_tldevice = [cam.GetTLDeviceNodeMap() for cam in cam_list]
 
         # Retrieve GenICam nodemap
-        nodemap = cam.GetNodeMap()
+        nodemap = [cam.GetNodeMap() for cam in cam_list]
 
         # Setting initial values for exposure time and gain
-        expo.configure_exposure2(cam, 10)
-        expo.gain(cam, 4)
+        for cam in cam_list:
+            expo.configure_exposure2(cam, 10)
+            expo.gain(cam, 4)
 
         # Setting up the camera for acquisition
-        create_window(cam, nodemap)
+        for i in range(num_cameras):
+            create_window(cam_list[i], nodemap[i])
+
 
         # Array to store the values for contrast, brightness and time exposure in us
         aux = np.array([1., 0., 10, 4., 1., 0])
@@ -513,8 +592,9 @@ def main():
         fenetre = Tk()
         fenetre.geometry("1300x700")
 
+        #Defining functions to validate entries----
         def correct(inp):
-            time.sleep(0.1)
+
             if inp.isdigit() or inp == '':
                 return True
             else:
@@ -523,7 +603,7 @@ def main():
         reg = fenetre.register(correct)
 
         def correctf(inp):
-            time.sleep(0.1)
+
             if inp.replace(".", "", 1).isdigit() or inp == '':
                 return True
             else:
@@ -532,7 +612,7 @@ def main():
         regf = fenetre.register(correctf)
 
         def correctfn(inp):
-            time.sleep(0.1)
+
             if inp == '':
                 return True
 
@@ -543,8 +623,39 @@ def main():
 
         regfn = fenetre.register(correctfn)
 
-        image5 = [np.clip(aux[0] * acquire_images(cam, nodemap_tldevice) + aux[1], 0, 255)]
-        image6 = [ImageTk.PhotoImage(Image.fromarray(image5[0]), master=fenetre)]
+        #
+        varc=[IntVar() for cam in cam_list]
+
+
+        for i, cam in enumerate(cam_list):
+
+            nodemap2 = cam.GetTLDeviceNodeMap()
+
+            node_device_information = PySpin.CCategoryPtr(nodemap2.GetNode('DeviceInformation'))
+
+            if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
+                features = node_device_information.GetFeatures()
+                node_feature = PySpin.CValuePtr(features[0])
+                Checkbutton(fenetre, text="cam: %s" % node_feature.ToString(), variable=varc[i]).place(x=20+i*100,y=520)
+
+
+
+
+
+
+        image5 = [np.clip(aux[0] * acquire_images(cam_list[i],nodemap_tldevice[i]) ** (aux[4])+ aux[1], 0, 255) for i in range(num_cameras)]
+
+        image7=np.zeros((np.shape(image5[0])[0],np.shape(image5[0])[1],3),dtype=np.int8)
+        for i in range(num_cameras):
+            if varc[i].get()==1:
+                image7[:,:,i]=image5[i]
+
+
+
+
+        image6 = [ImageTk.PhotoImage(Image.fromarray(image7,mode="RGB"), master=fenetre)]
+
+
 
         # Creating the canvas for the image
         canvas = Canvas(fenetre, width=image5[0].shape[1], height=image5[0].shape[0])
@@ -692,6 +803,9 @@ def main():
         EntreeT.config(validate="key", validatecommand=(reg, '%P'))
         boutonT1 = Button(fenetre, text="Set the temperature to", command=set_temp)
         boutonT1.place(x=630, y=267)
+
+        labelT = Label(fenetre, text=" TEMPERATURE: %s" % temp[0], bg='white')
+        labelT.place(x=680, y=300)
 
         # Volume sweep section
 
@@ -872,27 +986,54 @@ def main():
 
         # a = [1]
 
+        image7_aux = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1]), dtype=np.int8)
         def main_loop():
 
             while aux[-1] != 1:
 
                 while stop[0] == 1:
                     pass
-                # Quick pause
-                time.sleep(0.01)
+                
                 # Acquiring the new image, changing contrast and brightness, and changing its format so that it's
                 # compatible with tkinter
-                image5[0] = np.clip(aux[0] * acquire_images(cam, nodemap_tldevice) ** (aux[4]) + aux[1], 0, 255)
-                image6[0] = ImageTk.PhotoImage(Image.fromarray(image5[0]), master=fenetre)
+
+
+                thing1=np.clip(aux[0] * acquire_images(cam_list[0],nodemap_tldevice[0]) ** (aux[4])+ aux[1], 0, 255)
+                thing2 = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4]) + aux[1], 0, 255)
+
+                #image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0, 255)
+
+
+
+                if varc[0].get() == 1:
+                    image7[:, :, 0] = thing1
+                else:
+                    image7[:, :, 0] = image7_aux
+
+                if varc[1].get() == 1:
+                    image7[:, :, 1] = thing2
+                else:
+                    image7[:, :, 1] = image7_aux
+
+                #image7[:, :, 0] = thing1
+                #image7[:, :, 1] = thing2
+
+                image6 = [ImageTk.PhotoImage(Image.fromarray(image7,"RGB"), master=fenetre)]
                 # Changing the image on the canvas
                 canvas.itemconfigure(image_on_canvas, image=image6[0])
 
-                labelT = Label(fenetre, text=" TEMPERATURE: %s" % temp[0], bg='white')
-                labelT.place(x=680, y=300)
+                labelT.configure(text=" TEMPERATURE: %s" % temp[0])
+
 
                 # canvas.itemconfigure(image_on_canvas, image=image6[0])
 
-        time.sleep(1)
+        #T1 = threading.Thread(target=thread1)
+        #T2 = threading.Thread(target=thread2)
+        #T1.start()
+        #T2.start()
+
+
+        plt.pause(1)
         thread = threading.Thread(target=main_loop)
         thread.start()
 
@@ -901,9 +1042,11 @@ def main():
         thread.join()
 
         # Terminating the camera
-        terminate(cam)
 
-        cam = None
+
+        for cam in cam_list:
+            terminate(cam)
+            cam = None
 
         # Clear camera list before releasing system
         cam_list.Clear()
@@ -919,9 +1062,9 @@ def main():
         auto[0] = 0
         first = 1
 
-    spim.close_ports()
+    #spim.close_ports()
 
-    print(' ')
+
     print('blackfly_preview successfully exited')
 
     return True
