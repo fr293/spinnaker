@@ -241,9 +241,9 @@ def terminate(cam):
 def main():
     # ----------------------
 
-    # This function will modify the settings once called upon
     global num
 
+    # This function will modify the settings once called upon
     def recupere():
         aux[0] = float(entree1.get())
         aux[1] = float(entree2.get())
@@ -418,15 +418,15 @@ def main():
 
     # Temperature control
 
+    temp = [2]
+
     def set_temp():
         temp[0] += 1
-
-    temp = [2]
 
     # Sweep volume control
 
     def set_sweeplim():
-        print('ho')
+        print('')
 
     # Laser control functions
 
@@ -513,6 +513,8 @@ def main():
         fenetre = Tk()
         fenetre.geometry("1300x700")
 
+        # The following fonctions will serve as validation keys for the different entries
+
         def correct(inp):
             time.sleep(0.1)
             if inp.isdigit() or inp == '':
@@ -543,6 +545,8 @@ def main():
 
         regfn = fenetre.register(correctfn)
 
+        # Let's initiate the first image that'll appear on the canvas. The process used below is reproduced in the
+        # mainloop.
         image5 = [np.clip(aux[0] * acquire_images(cam, nodemap_tldevice) + aux[1], 0, 255)]
         image6 = [ImageTk.PhotoImage(Image.fromarray(image5[0]), master=fenetre)]
 
@@ -566,7 +570,7 @@ def main():
         value6 = StringVar()
         value6.set(1)
 
-        # labels, entries and button for the different parameters
+        # labels, entries and buttons for the different parameters
 
         label5 = Label(fenetre, text="Parameters", bg="cyan")
         label5.place(x=855, y=0)
@@ -679,7 +683,7 @@ def main():
         boutonM2 = Button(fenetre, text="Pulse", command=start_magnet2)
         boutonM2.place(x=1190, y=227)
 
-        # Temperature
+        # Temperature control
         label5 = Label(fenetre, text="Temperature control", bg="cyan")
         label5.place(x=670, y=240)
 
@@ -763,7 +767,7 @@ def main():
         entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL2.place(x=1185, y=370)
 
-        # Stage
+        # Stage control
 
         valueS = StringVar()
         valueS.set(1)
@@ -774,7 +778,8 @@ def main():
         entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key", validatecommand=(regfn, '%P'))
         entreeS1.place(x=980, y=420)
 
-        # Automated experiment part
+        # ----------------------------------------
+        # Automated experiment section
 
         labelA1 = Label(fenetre, text="Automated experiment", bg="Cyan")
         labelA1.place(x=550, y=550)
@@ -890,8 +895,8 @@ def main():
                 # Changing the image on the canvas
                 canvas.itemconfigure(image_on_canvas, image=image6[0])
 
+                # Updating temperature value
                 labelT.configure(text=" TEMPERATURE: %s" % temp[0])
-
 
                 # canvas.itemconfigure(image_on_canvas, image=image6[0])
 
@@ -915,6 +920,9 @@ def main():
         system.ReleaseInstance()
 
         del system
+
+        # This part corresponds to the automated experiment. If you press one of the two experiment buttons you will
+        # close the tkinter window and launch a function from spimmm automated experiment
         if auto[0] == 1:
             sae.function()
         if auto[0] == 2:
