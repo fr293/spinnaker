@@ -969,20 +969,26 @@ def main():
         valueL2 = StringVar()
         valueL2.set(10)
 
+        valueL3 = IntVar()
+        valueL3.set(0)
+
+        valueL4 = IntVar()
+        valueL4.set(0)
+
         labelL1 = Label(fenetre, text="Lasers control", bg="Cyan")
         labelL1.place(x=960, y=400)
 
         labelL2 = Label(fenetre, text="488 Laser:", bg="yellow")
         labelL2.place(x=830, y=435)
 
-        boutonL1 = Button(fenetre, text="Turn on", command=onlaser1)
+        boutonL1 = Button(fenetre, text="ON", variable=valueL3, value=1)
         boutonL1.place(x=895, y=432)
 
-        boutonL2 = Button(fenetre, text="Turn off", command=offlaser1)
+        boutonL2 = Button(fenetre, text="OFF", variable=valueL3, value=0)
         boutonL2.place(x=950, y=432)
 
-        boutonL3 = Button(fenetre, text="Set laser power (in mW) to:", command=powlaser1)
-        boutonL3.place(x=1030, y=432)
+        labelL3 = Label(fenetre, text="Power (in mW):")
+        labelL3.place(x=1030, y=432)
 
         entreeL1 = Entry(fenetre, textvariable=valueL1, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL1.place(x=1185, y=435)
@@ -990,13 +996,13 @@ def main():
         labelL3 = Label(fenetre, text="561 Laser:", bg="yellow")
         labelL3.place(x=830, y=470)
 
-        boutonL4 = Button(fenetre, text="Turn on", command=onlaser2)
+        boutonL4 = Radiobutton(fenetre, text="ON", variable=valueL4, value=1)
         boutonL4.place(x=895, y=467)
 
-        boutonL5 = Button(fenetre, text="Turn off", command=offlaser2)
+        boutonL5 = Radiobutton(fenetre, text="OFF", variable=valueL4, value=0)
         boutonL5.place(x=950, y=467)
 
-        boutonL6 = Button(fenetre, text="Set laser power (in mW) to:", command=powlaser2)
+        boutonL6 = Label(fenetre, text="Power (in mW):")
         boutonL6.place(x=1030, y=467)
 
         entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
