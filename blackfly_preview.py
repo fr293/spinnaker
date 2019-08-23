@@ -590,6 +590,9 @@ def main():
 
         spim.stage(pos)
 
+    def raisestage():
+        spim.stage(-6)
+
 
     # -----------------------------------------------------------
     #threading
@@ -1008,16 +1011,32 @@ def main():
         entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL2.place(x=1185, y=470)
 
+
+
         # Stage
 
+        labelS1=Label(fenetre, text='Stage control')
+        labelS1.place(x=950,y=510)
+
         valueS = StringVar()
-        valueS.set(1)
+        valueS.set(-6)
 
         boutonS1 = Button(fenetre, text="Set stage to:", command=stage)
-        boutonS1.place(x=900, y=520)
+        boutonS1.place(x=900, y=540)
 
         entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeS1.place(x=980, y=520)
+        entreeS1.place(x=980, y=540)
+
+        boutonS2 = Button(fenetre, text='Engage', command=spim.engage)
+        boutonS2.place(x=900, y=570)
+
+        boutonS3 = Button(fenetre, text='Disengage', command=spim.disengage)
+        boutonS3.place(x=950, y=570)
+
+        truceee = Button(fenetre, text='Raise', command=raisestage)
+        truceee.place(x=1030, y=570)
+
+
 
         # Automated experiment part
 
