@@ -28,6 +28,7 @@ from tkinter import *
 import threading
 from PIL import Image, ImageTk
 import power_supply_current_controller as pscc
+import power_supply_current_controller_threaded as pscct
 from tkinter import filedialog
 import serial
 # some_file.py
@@ -376,11 +377,24 @@ def main():
 
     # This function saves the current frame once called upon
     def save():
-        new_im = Image.fromarray(image5[0])
-        new_im = new_im.convert('RGB')
-        file = filedialog.asksaveasfile(mode='w', defaultextension=".jpg")
-        new_im.save(file)
-        print 'Image saved as %s' % file
+        #print('hi')
+        #print(image7)
+
+        image27=np.zeros(np.shape(image7))
+        image27[:,:,1]=image7[:,:,1]
+        image27[:, :, 2] = image7[:, :, 0]
+        truc=(image27[:,:,1]+image27[:, :, 2])/2
+        #print(truc)
+        #new_im = Image.fromarray(truc)
+        #new_im = new_im.convert('RGB')
+        file = filedialog.asksaveasfilename(initialdir = "/",title = "Select file",filetypes = (("tif files","*.tif"),("all files","*.*")))
+
+        if file!=None:
+            if variablecoul.get()==1:
+                cv2.imwrite("%s.png" % file,image27)
+            else:
+                cv2.imwrite("%s.png" % file, truc)
+            print 'Image saved as %s.png' % file
 
     # The following functions allow the user to save a video from the moment they press start recording to the moment
     # they press stop recording
@@ -391,9 +405,18 @@ def main():
     def video():
 
         frame_array = []
+
         while vid[0] == 0:
-            frame_array.append(image5[0])
-            time.sleep(0.1)
+            frame_array.append(np.zeros(np.shape(image7)))
+            frame_array[-1][:, :, 0]=image7[:,:,0]
+            frame_array[-1][:, :, 1]=image7[:,:,1]
+            frame_array[-1][:,:,2]=image7[:,:,2]
+            #print('hi')
+            #print(image7)
+            #print('hello')
+            #print(frame_array[-1])
+            #print('hi')
+            plt.pause(0.1)
         time.sleep(0.5)
 
         while vid[0] == 1:
@@ -405,17 +428,34 @@ def main():
         video2 = cv2.VideoWriter('%s' % name, fourcc, float(10), (image5[0].shape[1], image5[0].shape[0]))
         w, h = image5[0].shape
         ret = np.empty((w, h, 3), dtype=np.uint8)
-        for frame in frame_array:
-            ret[:, :, 0] = frame
-            ret[:, :, 1] = frame
-            ret[:, :, 2] = frame
-            video2.write(ret)
+
+        if variablecoul.get()==1:
+            for i in range(np.shape(frame_array)[0]):
+                # print(frame_array[i])
+                # print('coucou')
+                ret[:, :, 0] = frame_array[i][:, :, 2]
+                ret[:, :, 1] = frame_array[i][:, :, 1]
+                ret[:, :, 2] = frame_array[i][:, :, 0]
+                video2.write(ret)
+        else:
+            for i in range(np.shape(frame_array)[0]):
+                # print(frame_array[i])
+                # print('coucou')
+                ret[:, :, 0] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+                ret[:, :, 1] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+                ret[:, :, 2] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+                video2.write(ret)
+
         video2.release()
         vid[0] = 0
         print('Video saved as %s' % name)
 
-    def start_video():
+        bouton8.configure(state=DISABLED)
+        bouton7.configure(state=NORMAL)
 
+    def start_video():
+        bouton7.configure(state=DISABLED)
+        bouton8.configure(state=NORMAL)
         thread2 = threading.Thread(target=video)
         thread2.start()
 
@@ -453,7 +493,7 @@ def main():
         time.sleep(1)
         pscc.write_values(connection_object, conf, amp)
         time.sleep(0.02)
-        current_controller = threading.Thread(name='current_controller', target=pscc.trigger_currents,
+        current_controller = threading.Thread(name='current_controller', target=pscct.trigger_currents,
                                               args=(connection_object, dur))
         pscc.light_on(connection_object)
         current_controller.start()
@@ -585,13 +625,63 @@ def main():
         spim.pwr2 = pow2
         spim.laser_power()
 
+    def laser():
+        spim.open_ports()
+        spim.pow = float(valueL1.get()) / 1000.
+        spim.pow2 = float(valueL2.get()) / 1000.
+
+        if valueL3.get()==1:
+
+            spim.lst1=True
+        else:
+
+            spim.lst1 = False
+
+        if valueL4.get()==1:
+
+            spim.lst2=True
+        else:
+
+            spim.lst2 = False
+
+        spim.laser_power()
+
+
+    #Stage control
     def stage():
         pos = float(valueS.get())
 
         spim.stage(pos)
 
+
+    bb=[0]
+    def engage():
+        boutonS2.config(state=DISABLED)
+        boutonS3.config(state=NORMAL)
+        spim.engage()
+        boutonS1.config(state=NORMAL)
+        bb[0]=1
+
+    def disengage():
+        boutonS3.config(state=DISABLED)
+        boutonS2.config(state=NORMAL)
+        spim.engage()
+        boutonS1.config(state=DISABLED)
+        bb[0]=0
+
+
     def raisestage():
-        spim.stage(-6)
+        if bb[0]==1:
+            spim.stage(-6)
+        if bb[0]==0:
+            spim.engage()
+            spim.stage(-6)
+            plt.pause(2)
+            spim.disengage()
+
+    def stagerr():
+        auxaux=spim.err()[-2]
+        labelS2.configure(text=' %s ' % auxaux)
 
 
     # -----------------------------------------------------------
@@ -616,7 +706,10 @@ def main():
     auto = [0]
 
     spim = so.SPIMMM()
-    spim.engage()
+
+    offlaser1()
+    offlaser2()
+
     while restart[0] == 0:
         
         restart[0] = 1
@@ -646,7 +739,7 @@ def main():
 
         # Setting initial values for exposure time and gain
         for cam in cam_list:
-            expo.configure_exposure2(cam, 10)
+            expo.configure_exposure2(cam, 10000)
             expo.gain(cam, 4)
 
         # Setting up the camera for acquisition
@@ -655,8 +748,8 @@ def main():
 
 
         # Array to store the values for contrast, brightness and time exposure in us
-        aux = np.array([1., 0., 10, 4., 1., 0])
-        aux2 = np.array([1., 0., 10, 4., 1., 0])
+        aux = np.array([1., 0., 10000, 4., 1., 0])
+        aux2 = np.array([1., 0., 10000, 4., 1., 0])
 
         # Time between each frame in s
 
@@ -685,7 +778,7 @@ def main():
 
         def correctfn(inp):
 
-            if inp == '':
+            if inp == '' or inp == '-':
                 return True
 
             elif inp[0] == '-':
@@ -741,7 +834,7 @@ def main():
         value2.set(0)
 
         value3 = StringVar()
-        value3.set(10)
+        value3.set(10000)
 
         value4 = StringVar()
         value4.set(4)
@@ -756,7 +849,7 @@ def main():
         value22.set(0)
 
         value23 = StringVar()
-        value23.set(10)
+        value23.set(10000)
 
         value24 = StringVar()
         value24.set(4)
@@ -856,15 +949,24 @@ def main():
         label5 = Label(fenetre, text="Save a frame or a video", bg="cyan")
         label5.place(x=660, y=210)
 
+        variablecoul=IntVar()
+        variablecoul.set(1)
+
+        boutongray=Radiobutton(fenetre,text='Grayscale',variable=variablecoul,value=0)
+        boutongray.place(x=655, y=235)
+
+        boutoncoul = Radiobutton(fenetre, text='Color', variable=variablecoul, value=1)
+        boutoncoul.place(x=735, y=235)
+
         bouton2 = Button(fenetre, text="Save the current image", command=save)
-        bouton2.place(x=660, y=240)
+        bouton2.place(x=660, y=260)
 
         # Label, entry and button to record a video
 
         bouton7 = Button(fenetre, text="Start recording", command=start_video)
-        bouton7.place(x=632, y=270)
-        bouton8 = Button(fenetre, text="Stop recording", command=stop_vid)
-        bouton8.place(x=722, y=270)
+        bouton7.place(x=632, y=290)
+        bouton8 = Button(fenetre, text="Stop recording", command=stop_vid, state=DISABLED)
+        bouton8.place(x=722, y=290)
 
         # Freeze and Resume button
 
@@ -923,25 +1025,25 @@ def main():
 
         # Temperature
         label5 = Label(fenetre, text="Temperature control", bg="cyan")
-        label5.place(x=670, y=320)
+        label5.place(x=670, y=335)
 
         valueT = StringVar()
         valueT.set(2)
 
         EntreeT = Entry(fenetre, textvariable=valueT, width=10)
-        EntreeT.place(x=770, y=350)
+        EntreeT.place(x=770, y=360)
 
         EntreeT.config(validate="key", validatecommand=(reg, '%P'))
         boutonT1 = Button(fenetre, text="Set the temperature to", command=set_temp)
-        boutonT1.place(x=630, y=347)
+        boutonT1.place(x=630, y=357)
 
         labelT = Label(fenetre, text=" TEMPERATURE: %s" % temp[0], bg='white')
-        labelT.place(x=680, y=380)
+        labelT.place(x=680, y=390)
 
         # Volume sweep section
 
         labelSV = Label(fenetre, text="Sweep volume limits", bg="cyan")
-        labelSV.place(x=670, y=425)
+        labelSV.place(x=670, y=430)
 
         valueSV1 = StringVar()
         valueSV1.set(0)
@@ -950,16 +1052,16 @@ def main():
         valueSV2.set(2)
 
         label1 = Label(fenetre, text="Upper limit", bg="yellow")
-        label1.place(x=730, y=450)
+        label1.place(x=730, y=455)
 
         entreeSV1 = Entry(fenetre, textvariable=valueSV1, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV1.place(x=660, y=450)
+        entreeSV1.place(x=660, y=455)
 
         label1 = Label(fenetre, text="Lower limit", bg="yellow")
-        label1.place(x=730, y=480)
+        label1.place(x=730, y=485)
 
         entreeSV2 = Entry(fenetre, textvariable=valueSV2, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV2.place(x=660, y=480)
+        entreeSV2.place(x=660, y=485)
 
         boutonSV = Button(fenetre, text="Set Sweep volume limits", command=set_sweeplim)
         boutonSV.place(x=660, y=510)
@@ -967,10 +1069,10 @@ def main():
         # Lasers control
 
         valueL1 = StringVar()
-        valueL1.set(10)
+        valueL1.set(20)
 
         valueL2 = StringVar()
-        valueL2.set(10)
+        valueL2.set(20)
 
         valueL3 = IntVar()
         valueL3.set(0)
@@ -979,109 +1081,118 @@ def main():
         valueL4.set(0)
 
         labelL1 = Label(fenetre, text="Lasers control", bg="Cyan")
-        labelL1.place(x=960, y=400)
+        labelL1.place(x=960, y=380)
 
         labelL2 = Label(fenetre, text="488 Laser:", bg="yellow")
-        labelL2.place(x=830, y=435)
+        labelL2.place(x=830, y=415)
 
-        boutonL1 = Button(fenetre, text="ON", variable=valueL3, value=1)
-        boutonL1.place(x=895, y=432)
+        boutonL1 = Radiobutton(fenetre, text="ON", variable=valueL3, value=1)
+        boutonL1.place(x=895, y=412)
 
-        boutonL2 = Button(fenetre, text="OFF", variable=valueL3, value=0)
-        boutonL2.place(x=950, y=432)
+        boutonL2 = Radiobutton(fenetre, text="OFF", variable=valueL3, value=0)
+        boutonL2.place(x=940, y=412)
 
         labelL3 = Label(fenetre, text="Power (in mW):")
-        labelL3.place(x=1030, y=432)
+        labelL3.place(x=1000, y=412)
 
         entreeL1 = Entry(fenetre, textvariable=valueL1, width=10, validate="key", validatecommand=(reg, '%P'))
-        entreeL1.place(x=1185, y=435)
+        entreeL1.place(x=1090, y=415)
+
+        boutonL1= Button(fenetre, text="Update", command=laser)
+        boutonL1.place(x=1170, y=428)
 
         labelL3 = Label(fenetre, text="561 Laser:", bg="yellow")
-        labelL3.place(x=830, y=470)
+        labelL3.place(x=830, y=450)
 
         boutonL4 = Radiobutton(fenetre, text="ON", variable=valueL4, value=1)
-        boutonL4.place(x=895, y=467)
+        boutonL4.place(x=895, y=447)
 
         boutonL5 = Radiobutton(fenetre, text="OFF", variable=valueL4, value=0)
-        boutonL5.place(x=950, y=467)
+        boutonL5.place(x=940, y=447)
 
         boutonL6 = Label(fenetre, text="Power (in mW):")
-        boutonL6.place(x=1030, y=467)
+        boutonL6.place(x=1000, y=447)
 
         entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
-        entreeL2.place(x=1185, y=470)
+        entreeL2.place(x=1090, y=450)
+
+
 
 
 
         # Stage
 
-        labelS1=Label(fenetre, text='Stage control')
-        labelS1.place(x=950,y=510)
+        labelS1=Label(fenetre, text='Stage control',bg='Cyan')
+        labelS1.place(x=960,y=490)
 
         valueS = StringVar()
         valueS.set(-6)
 
-        boutonS1 = Button(fenetre, text="Set stage to:", command=stage)
-        boutonS1.place(x=900, y=540)
+        boutonS1 = Button(fenetre, text="Set stage to:", command=stage, state=DISABLED )
+        boutonS1.place(x=890, y=520)
 
         entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeS1.place(x=980, y=540)
+        entreeS1.place(x=970, y=523)
 
-        boutonS2 = Button(fenetre, text='Engage', command=spim.engage)
-        boutonS2.place(x=900, y=570)
+        boutonS2 = Button(fenetre, text='Engage', command=engage)
+        boutonS2.place(x=890, y=550)
 
-        boutonS3 = Button(fenetre, text='Disengage', command=spim.disengage)
-        boutonS3.place(x=950, y=570)
+        boutonS3 = Button(fenetre, text='Disengage', command=disengage,state=DISABLED)
+        boutonS3.place(x=940, y=550)
 
         truceee = Button(fenetre, text='Raise', command=raisestage)
-        truceee.place(x=1030, y=570)
+        truceee.place(x=1020, y=550)
 
+        boutonS4 = Button(fenetre, text='Error:', command=stagerr)
+        boutonS4.place(x=1090, y=535)
 
+        labelS2 = Label(fenetre, text='      ',bg='White')
+        labelS2.place(x=1133, y=538)
 
         # Automated experiment part
 
         labelA1 = Label(fenetre, text="Automated experiment", bg="Cyan")
-        labelA1.place(x=550, y=550)
+        labelA1.place(x=480, y=570)
 
         boutonA1 = Button(fenetre, text="Run automated experiment from file", command=automated1)
-        boutonA1.place(x=100, y=620)
+        boutonA1.place(x=800, y=635)
 
-        boutonA2 = Button(fenetre, text="Run automated experiment with parameters on the right", command=automated2)
-        boutonA2.place(x=50, y=650)
+        boutonA2 = Button(fenetre, text="Run automated experiment with parameters on the left", command=automated2)
+        boutonA2.place(x=800, y=665)
 
         labelA2 = Label(fenetre, text="Design your own automated experiment:")
-        labelA2.place(x=500, y=580)
+        labelA2.place(x=20, y=580)
 
         # Labels and buttons for the automated experiment
         labelA3 = Label(fenetre, text="Name", bg="yellow")
-        labelA3.place(x=400, y=610)
+        labelA3.place(x=20, y=610)
 
         labelA4 = Label(fenetre, text="Amplitude", bg="yellow")
-        labelA4.place(x=494, y=610)
+        labelA4.place(x=114, y=610)
 
         labelA4 = Label(fenetre, text="Configuration", bg="yellow")
-        labelA4.place(x=588, y=610)
+        labelA4.place(x=208, y=610)
 
         labelA4 = Label(fenetre, text="Force on", bg="yellow")
-        labelA4.place(x=682, y=610)
+        labelA4.place(x=302, y=610)
 
         labelA5 = Label(fenetre, text="Force duration", bg="yellow")
-        labelA5.place(x=776, y=610)
+        labelA5.place(x=396, y=610)
 
         labelA6 = Label(fenetre, text="Num frames", bg="yellow")
-        labelA6.place(x=870, y=610)
+        labelA6.place(x=490, y=610)
 
         labelA7 = Label(fenetre, text="Frame period", bg="yellow")
-        labelA7.place(x=964, y=610)
+        labelA7.place(x=584, y=610)
 
         labelA8 = Label(fenetre, text="Temperature", bg="yellow")
-        labelA8.place(x=1058, y=610)
+        labelA8.place(x=678, y=610)
 
         # ----------------------
 
         frame_main = Frame(fenetre, bg="gray")
         frame_main.grid(sticky='news')
-        frame_main.place(x=400, y=630)
+        frame_main.place(x=20, y=630)
 
         # Create a frame for the canvas with non-zero row&column weights
         frame_canvas = Frame(frame_main)
@@ -1170,7 +1281,10 @@ def main():
 
                 #image7[:, :, 0] = thing1
                 #image7[:, :, 1] = thing2
-
+                #print('hey')
+                #print(image7)
+                #print('hey')
+                plt.pause(0.1)
                 image6 = [ImageTk.PhotoImage(Image.fromarray(image7,"RGB"), master=fenetre)]
                 # Changing the image on the canvas
 
@@ -1179,6 +1293,7 @@ def main():
 
 
         def doSomething():
+            stop[0]=0
             aux[-1]=1
             plt.pause(0.2)
             fenetre.destroy()
@@ -1227,6 +1342,9 @@ def main():
         auto[0] = 0
         first = 1
 
+    offlaser1()
+    offlaser2()
+    raisestage()
     spim.disengage()
     spim.close_ports()
 
