@@ -526,9 +526,9 @@ def main():
         time.sleep(1)
         pscc.write_values(connection_object, conf, amp)
         time.sleep(0.02)
-        current_controller = threading.Thread(name='current_controller', target=pscc.trigger_currents,
+        current_controller = threading.Thread(name='current_controller', target=pscct.trigger_currents,
                                               args=(connection_object, dur))
-        pscc.light_on(connection_object)
+
         current_controller.start()
         current_controller.join()
         time.sleep(0.02)
