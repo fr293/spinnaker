@@ -380,17 +380,39 @@ def main():
         #print('hi')
         #print(image7)
 
-        image27=np.zeros(np.shape(image7))
-        image27[:,:,1]=image7[:,:,1]
-        image27[:, :, 2] = image7[:, :, 0]
+        image27=np.zeros(np.shape(image7),dtype=np.int32)
+
+        for i in range(np.shape(image7)[0]):
+            for j in range(np.shape(image7)[1]):
+
+                if image7[i,j,1]<0:
+                    image27[i, j, 1]=image7[i,j,1]+255
+                else:
+                    image27[i, j, 1] = image7[i, j, 1]
+
+                if image7[i,j,0]<0:
+                    image27[i, j, 2]=image7[i,j,0]+255
+                else:
+                    image27[i, j, 2] = image7[i, j, 0]
+
         truc=(image27[:,:,1]+image27[:, :, 2])/2
         #print(truc)
         #new_im = Image.fromarray(truc)
-        #new_im = new_im.convert('RGB')
-        file = filedialog.asksaveasfilename(initialdir = "/",title = "Select file",filetypes = (("tif files","*.tif"),("all files","*.*")))
 
+        #new_im = new_im.convert('RGB')
+
+        #print(image27)
+
+
+
+        #print(np.min(image27))
+        #print(np.max(image27))
+
+        file = filedialog.asksaveasfilename(initialdir="/", title="Select file",
+                                            filetypes=(("png files", "*.png"), ("all files", "*.*")))
         if file!=None:
             if variablecoul.get()==1:
+
                 cv2.imwrite("%s.png" % file,image27)
             else:
                 cv2.imwrite("%s.png" % file, truc)
@@ -823,8 +845,8 @@ def main():
 
 
         # Creating the canvas for the image
-        canvas = Canvas(fenetre, width=image5[0].shape[1], height=image5[0].shape[0])
-        canvas.place(x=0, y=0)
+        canvas = Canvas(fenetre, width=image5[0].shape[1]+25, height=image5[0].shape[0]+25)
+        canvas.place(x=-18, y=-18)
 
         # Creating the values stored in the different entries
         value1 = StringVar()
@@ -1260,24 +1282,31 @@ def main():
                 
                 # Acquiring the new image, changing contrast and brightness, and changing its format so that it's
                 # compatible with tkinter
-
+                #time.sleep(3)
 
                 thing1=np.clip(aux[0] * acquire_images(cam_list[0],nodemap_tldevice[0]) ** (aux[4])+ aux[1], 0, 255)
                 thing2 = np.clip(aux2[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux2[4]) + aux2[1], 0, 255)
 
                 #image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0, 255)
 
+                #print('thing1 min' , np.min(thing1))
+                #print(type(np.min(thing1)))
+                #print('thing1 max' , np.max(thing1))
+                #print('thing2 min' , np.min(thing2))
+                #print(type(np.min(thing2)))
+                #print('thing2 max' , np.max(thing2))
 
 
                 if varc[0].get() == 1:
-                    image7[:, :, 1] = thing1
+                    image7[:, :, 1] = np.copy(thing1)
                 else:
-                    image7[:, :, 1] = image7_aux
+                    image7[:, :, 1] = np.copy(image7_aux)
 
                 if varc[1].get() == 1:
-                    image7[:, :, 0] = thing2
+                    image7[:, :, 0] = np.copy(thing2)
                 else:
-                    image7[:, :, 0] = image7_aux
+                    image7[:, :, 0] = np.copy(image7_aux)
+
 
                 #image7[:, :, 0] = thing1
                 #image7[:, :, 1] = thing2
@@ -1285,6 +1314,13 @@ def main():
                 #print(image7)
                 #print('hey')
                 plt.pause(0.1)
+
+
+                #print('image7 min' , np.min(image7))
+                #print('image7 max' , np.max(image7))
+
+
+
                 image6 = [ImageTk.PhotoImage(Image.fromarray(image7,"RGB"), master=fenetre)]
                 # Changing the image on the canvas
 
