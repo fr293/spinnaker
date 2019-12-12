@@ -75,6 +75,7 @@ def configure_exposure(cam):
             return False
 
         cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+
         # print 'Automatic exposure disabled...'
 
         # Set exposure time manually; exposure time recorded in microseconds
