@@ -832,8 +832,8 @@ def main():
 
     def laser():
         spim.open_ports()
-        spim.pow = float(valueL1.get()) / 1000.
-        spim.pow2 = float(valueL2.get()) / 1000.
+        spim.pwr1 = float(valueL1.get()) / 1000.
+        spim.pwr2 = float(valueL2.get()) / 1000.
 
         if valueL3.get()==1:
 
