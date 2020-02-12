@@ -42,7 +42,6 @@ import spimmm_obj as so
 
 import Trigger as tr
 
-print('hello')
 class TriggerType:
     SOFTWARE = 1
     HARDWARE = 2
@@ -642,11 +641,17 @@ def main():
     # Temperature control
 
     def set_temp():
+        # block volume button
+        boutonSV1.config(state=DISABLED)
+        spim.tem = float(valueT.get())
+        spim.starttempcont()
+        labelT.configure(text="Bath temp: %s" % spim.tempm)
 
-        temp[0]=temp[0]+1
-        labelT.configure(text=" TEMPERATURE: %s" % temp[0])
-
-    temp = [2]
+    def halt_temp():
+        #release volume button
+        boutonSV1.config(state=NORMAL)
+        spim.halttempcont()
+        print('halt temp')
 
     # Sweep volume control
 
@@ -680,7 +685,7 @@ def main():
 
         for cam in cam_list:
             camera_mode(cam,"NewestFirst")
-        sw=threading.Thread(target=sweep_thread)
+        sw = threading.Thread(target=sweep_thread)
         #spim.readcfg()
         if valueSV5.get() == 1:
             ss = threading.Thread(target=save_sweep)
@@ -730,11 +735,11 @@ def main():
             print(i)
             aux_thing1= acquire_images(cam_list[0], nodemap_tldevice[0],False)
             aux_thing2 = acquire_images(cam_list[1], nodemap_tldevice[1], False)
-            print('hk')
+            #print('hk')
             thing1 = np.clip(aux[0] *aux_thing1[0] ** (aux[4]) + aux[1], 0, 255)
-            print('hu')
+            #print('hu')
             thing2 = np.clip(aux2[0] * aux_thing2[0] ** (aux2[4]) + aux2[1], 0, 255)
-            print('ha')
+            #print('ha')
 
 
 
@@ -742,7 +747,7 @@ def main():
                 image72[:, :, 1] = np.copy(thing1)
             else:
                 image72[:, :, 1] = np.copy(image7_aux)
-            print('hi')
+            #print('hi')
             if varc[1].get() == 1:
                 image72[:, :, 0] = np.copy(thing2)
             else:
@@ -753,9 +758,9 @@ def main():
             time_pile1.append(aux_thing1[1]/10.0**9)
             time_pile2.append(aux_thing2[1] / 10.0 ** 9)
         print(thing1)
-        print('koooo')
+        #print('koooo')
         print(thing2)
-        print('koooo')
+        #print('koooo')
         print(image72)
         print('min')
         print(np.min(thing2))
@@ -1278,17 +1283,20 @@ def main():
         label5.place(x=670, y=335)
 
         valueT = StringVar()
-        valueT.set(2)
+        valueT.set(20)
 
-        EntreeT = Entry(fenetre, textvariable=valueT, width=10)
-        EntreeT.place(x=770, y=360)
+        EntreeT = Entry(fenetre, textvariable=valueT, width=10, validate="key", validatecommand=(regfn, '%P'))
+        EntreeT.place(x=720, y=360)
 
         EntreeT.config(validate="key", validatecommand=(reg, '%P'))
-        boutonT1 = Button(fenetre, text="Set the temperature to", command=set_temp)
+        boutonT1 = Button(fenetre, text="Set temp", command=set_temp)
         boutonT1.place(x=630, y=357)
 
-        labelT = Label(fenetre, text=" TEMPERATURE: %s" % temp[0], bg='white')
-        labelT.place(x=680, y=390)
+        boutonT2 = Button(fenetre, text="Stop control", command=halt_temp)
+        boutonT2.place(x=630, y=385)
+
+        labelT = Label(fenetre, text="Bath temp: n/a", bg='white')
+        labelT.place(x=720, y=385)
 
         # Volume sweep section
 
@@ -1423,10 +1431,6 @@ def main():
 
         entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL2.place(x=1090, y=450)
-
-
-
-
 
         # Stage
 
@@ -1632,7 +1636,12 @@ def main():
                 # Changing the image on the canvas
 
                 canvas.itemconfigure(image_on_canvas, image=image6[0])
-
+                # update the temperature readout
+                labelT.configure(text="Bath temp: %s" % spim.tempm)
+                if spim.ont:
+                    labelT.configure(bg='green')
+                else:
+                    labelT.configure(bg='red')
 
 
         #function to close the window and leave the devices in the right state
@@ -1684,6 +1693,7 @@ def main():
         offlaser2()
         raisestage()
         spim.disengage()
+        spim.halttempcont()
         spim.close_ports()
 
         if auto[0] == 1:
