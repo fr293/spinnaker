@@ -180,7 +180,7 @@ def acquire_images2(cam_list):
 
 
                     # Convert image to mono 8
-                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
                     image_data = image_converted.GetNDArray()
                     image_data2 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
                     result.append(image_data2)
@@ -371,7 +371,7 @@ def main():
 
         truc=(image27[:,:,1]+image27[:, :, 0])/2
 
-        image37 = np.zeros((np.shape(image7)[0],np.shape(image7)[1]), dtype=np.uint8)
+        image37 = np.zeros((np.shape(image7)[0],np.shape(image7)[1]), dtype=np.uint16)
 
         for i in range(np.shape(image7)[0]):
             for j in range(np.shape(image7)[1]):
@@ -466,7 +466,7 @@ def main():
                     while not pic_que.empty():
                         interm=pic_que.get()
 
-                        image27 = np.zeros(np.shape(image7), dtype=np.uint8)
+                        image27 = np.zeros(np.shape(image7), dtype=np.uint16)
 
                         for i in range(np.shape(image7)[0]):
                             for j in range(np.shape(image7)[1]):
@@ -483,7 +483,7 @@ def main():
 
                         truc = (image27[:, :, 1] + image27[:, :, 0]) / 2
 
-                        image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.int8)
+                        image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.int16)
 
                         for i in range(np.shape(image7)[0]):
                             for j in range(np.shape(image7)[1]):
@@ -729,8 +729,8 @@ def main():
         time_pile1 = []
         time_pile2 = []
         print(pos_que.qsize()-1)
-        image72=np.zeros((dim[0],dim[1],3), dtype=np.uint8)
-        image7_aux = np.zeros((dim[0], dim[1]), dtype=np.uint8)
+        image72=np.zeros((dim[0],dim[1],3), dtype=np.uint16)
+        image7_aux = np.zeros((dim[0], dim[1]), dtype=np.uint16)
         for i in range(pos_que.qsize()):
             print(i)
             aux_thing1= acquire_images(cam_list[0], nodemap_tldevice[0],False)
@@ -1065,7 +1065,7 @@ def main():
 
         image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[i],nodemap_tldevice[i]), None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux[4])+ aux[1], 0, 255) for i in range(num_cameras)]
 
-        image7=np.zeros((np.shape(image5[0])[0],np.shape(image5[0])[1],3),dtype=np.int8)
+        image7=np.zeros((np.shape(image5[0])[0],np.shape(image5[0])[1],3),dtype=np.int16)
         for i in range(num_cameras):
             if varc[i].get()==1:
                 image7[:,:,i]=image5[i]
@@ -1307,7 +1307,7 @@ def main():
         valueSV1.set(6.3)
 
         valueSV2 = StringVar()
-        valueSV2.set(6.11)
+        valueSV2.set(6.1)
 
         valueSV3 = StringVar()
         valueSV3.set(-4486.982)
@@ -1438,7 +1438,7 @@ def main():
         labelS1.place(x=960,y=490)
 
         valueS = StringVar()
-        valueS.set(6.11)
+        valueS.set(5.45)
 
         valueS2 = IntVar()
         valueS2.set(0)
@@ -1464,7 +1464,7 @@ def main():
         labelS2 = Label(fenetre, text='      ',bg='White')
         labelS2.place(x=1133, y=553)
 
-        buttonS5= Checkbutton(fenetre,text='Mirror adjusted',variable=valueS2,command=mirror)
+        buttonS5 = Checkbutton(fenetre,text='mirror tracking',variable=valueS2,command=mirror)
         buttonS5.place(x=1050,y=520)
 
         # Trigger
