@@ -714,7 +714,7 @@ def main():
         #    cam.BeginAcquisition()
 
         labelSV2[0].place(x=250, y=250)
-        pos_que= Queue.Queue()
+        pos_que = Queue.Queue()
 
         while True:
             respa = spim.ard.readline()
@@ -729,7 +729,7 @@ def main():
         time_pile1 = []
         time_pile2 = []
         print(pos_que.qsize()-1)
-        image72=np.zeros((dim[0],dim[1],3), dtype=np.uint16)
+        image72 = np.zeros((dim[0],dim[1],3), dtype=np.uint16)
         image7_aux = np.zeros((dim[0], dim[1]), dtype=np.uint16)
         for i in range(pos_que.qsize()):
             print(i)
@@ -774,7 +774,7 @@ def main():
         with imageio.get_writer(file + '.tiff',bigtiff=True) as stack:
             with open(file + '_position.csv', 'ab') as f:
                 writer = csv.writer(f)
-                j=0
+                j = 0
                 while not pos_que.empty():
                     auxip = pos_que.get()
                     auxit1 = time_pile1.pop()
