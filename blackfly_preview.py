@@ -1056,26 +1056,16 @@ def main():
                 node_feature = PySpin.CValuePtr(features[0])
                 Checkbutton(fenetre, text="cam: %s" % node_feature.ToString(), variable=varc[i]).place(x=20+i*100,y=520)
 
-
         dim=np.shape(acquire_images(cam_list[0],nodemap_tldevice[0]))
-
-
-
-
 
         image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[i],nodemap_tldevice[i]), None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux[4])+ aux[1], 0, 255) for i in range(num_cameras)]
 
-        image7=np.zeros((np.shape(image5[0])[0],np.shape(image5[0])[1],3),dtype=np.int16)
+        image7 = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1],3),dtype=np.int16)
         for i in range(num_cameras):
-            if varc[i].get()==1:
-                image7[:,:,i]=image5[i]
-
-
-
+            if varc[i].get() == 1:
+                image7[:,:,i] = image5[i]
 
         image6 = [ImageTk.PhotoImage(Image.fromarray(image7,mode="RGB"), master=fenetre)]
-
-
 
         # Creating the canvas for the image
         canvas = Canvas(fenetre, width=image5[0].shape[1]+25, height=image5[0].shape[0]+25)
@@ -1691,6 +1681,7 @@ def main():
 
         offlaser1()
         offlaser2()
+        spim.engage()
         raisestage()
         spim.disengage()
         spim.halttempcont()
