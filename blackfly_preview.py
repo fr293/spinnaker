@@ -40,14 +40,21 @@ import spimm_automated_experiment as sae
 
 import spimmm_obj as so
 
-import Trigger as tr
+import Trigger as Tr
+
 
 class TriggerType:
     SOFTWARE = 1
     HARDWARE = 2
+
+    def __init__(self):
+        pass
+
+
 CHOSEN_TRIGGER = TriggerType.HARDWARE
 
-delay=[0.1]
+delay = [0.1]
+
 
 # register and list cameras
 # ask user for input on the camera to use
@@ -56,6 +63,7 @@ delay=[0.1]
 # create window showing preview image
 # update window with new preview image every 0.1s
 # if process is terminated, close down camera and finish acquisition
+
 
 # Function to register the different cameras
 def camera_registration(cam_list, num_cameras):
@@ -87,17 +95,18 @@ def camera_registration(cam_list, num_cameras):
                 print ('Error: %s' % ex)
             print (' ')
 
-
         except PySpin.SpinnakerException as ex:
             print ('Error: %s' % ex)
 
+
 def framerate(cam):
     cam.AcquisitionFrameRateEnable.SetValue(True)
-    #print('hhh %s' % cam.AcquisitionFrameRateEnable())
+    # print('hhh %s' % cam.AcquisitionFrameRateEnable())
     print('max frame rate= %s' % cam.AcquisitionFrameRate.GetMax())
     cam.AcquisitionFrameRate.SetValue(cam.AcquisitionFrameRate.GetMax())
     print('resulting frame rate: %s Hz' % cam.AcquisitionResultingFrameRate())
-    #cam.AcquisitionFrameRate.SetValue(cam.AcquisitionFrameRate.GetMax())
+    # cam.AcquisitionFrameRate.SetValue(cam.AcquisitionFrameRate.GetMax())
+
 
 # This function gets one image from the selected camera every time it is called upon
 def acquire_images(cam, nodemap_tldevice, time=True):
@@ -128,7 +137,6 @@ def acquire_images(cam, nodemap_tldevice, time=True):
                     image_data = image_converted.GetNDArray()
                     image_result.Release()
 
-
             except PySpin.SpinnakerException as ex:
                 print ('Error: %s' % ex)
                 return False
@@ -138,11 +146,12 @@ def acquire_images(cam, nodemap_tldevice, time=True):
         return False
 
     # The numpy array that contains the image is just modified in order to get a smaller image
-    #image_data2 = cv2.resize(image_data, None, fx=ratio, fy=ratio, interpolation=cv2.INTER_CUBIC)
-    if time==True:
+    # image_data2 = cv2.resize(image_data, None, fx=ratio, fy=ratio, interpolation=cv2.INTER_CUBIC)
+    if time:
         return image_data
     else:
-        return image_data,image_result.GetTimeStamp()
+        return image_data, image_result.GetTimeStamp()
+
 
 def acquire_images2(cam_list):
     """
@@ -153,7 +162,6 @@ def acquire_images2(cam_list):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
-
 
     try:
         result = []
@@ -166,7 +174,7 @@ def acquire_images2(cam_list):
         # through the cameras; otherwise, all images will be grabbed from a
         # single camera before grabbing any images from another.
 
-        for i,cam in enumerate(cam_list):
+        for i, cam in enumerate(cam_list):
             try:
                 # Retrieve next received image and ensure image completion
                 image_result = cam.GetNextImage()
@@ -178,18 +186,14 @@ def acquire_images2(cam_list):
                     width = image_result.GetWidth()
                     height = image_result.GetHeight()
 
-
                     # Convert image to mono 8
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
                     image_data = image_converted.GetNDArray()
                     image_data2 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
                     result.append(image_data2)
 
-
-
                 # Release image
                 image_result.Release()
-
 
             except PySpin.SpinnakerException as ex:
                 print'Error: %s' % ex
@@ -199,7 +203,8 @@ def acquire_images2(cam_list):
 
     return result
 
-def camera_mode(cam,mode):
+
+def camera_mode(cam, mode):
     # -------------------------
     # Buffer handling
 
@@ -238,8 +243,6 @@ def camera_mode(cam,mode):
         print 'Unable to set Buffer Count (Integer node retrieval). Aborting...\n'
         return False
 
-
-
     buffer_count.SetValue(200)
 
     # print 'Buffer count now set to: %d' % buffer_count.GetValue()
@@ -252,6 +255,7 @@ def camera_mode(cam,mode):
     print '\nDefault Buffer Handling Mode: %s' % handling_mode_entry.GetDisplayName()
     print 'Default Buffer Count: %d' % buffer_count.GetValue()
     print 'Maximum Buffer Count: %d' % buffer_count.GetMax()
+
 
 # This function sets up the camera so that it's ready for acquisition
 def create_window(cam, nodemap):
@@ -280,7 +284,7 @@ def create_window(cam, nodemap):
 
         print('Acquisition mode set to continuous...')
 
-        camera_mode(cam,'NewestOnly')
+        camera_mode(cam, 'NewestOnly')
 
         # ---------------------
         #  Begin acquiring images
@@ -352,8 +356,8 @@ def main():
 
     # This function saves the current frame once called upon
     def save():
-        #print('hi')
-        #print(image7)
+        # print('hi')
+        # print(image7)
         image27 = np.zeros(np.shape(image7), dtype=np.int64)
 
         for i in range(np.shape(image7)[0]):
@@ -369,9 +373,9 @@ def main():
                 else:
                     image27[i, j, 0] = image7[i, j, 0]
 
-        truc=(image27[:,:,1]+image27[:, :, 0])/2
+        truc = (image27[:, :, 1] + image27[:, :, 0]) / 2
 
-        image37 = np.zeros((np.shape(image7)[0],np.shape(image7)[1]), dtype=np.uint16)
+        image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.uint16)
 
         for i in range(np.shape(image7)[0]):
             for j in range(np.shape(image7)[1]):
@@ -381,38 +385,37 @@ def main():
 
                 else:
                     image37[i, j] = truc[i, j]
-        #print(truc)
-        #new_im = Image.fromarray(truc)
+        # print(truc)
+        # new_im = Image.fromarray(truc)
 
-        #new_im = new_im.convert('RGB')
+        # new_im = new_im.convert('RGB')
 
-        #print(image27)
+        # print(image27)
 
-
-
-        #print(np.min(image27))
-        #print(np.max(image27))
+        # print(np.min(image27))
+        # print(np.max(image27))
 
         pic_que = Queue.Queue()
         file = filedialog.asksaveasfilename(initialdir="/", title="Select file",
                                             filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
-        if file!=None:
-            if variablecoul.get()==1:
+        if file != None:
+            if variablecoul.get() == 1:
 
                 pic_que.put(image7)
                 with imageio.get_writer(file + '.tiff') as stack:
                     while not pic_que.empty():
                         stack.append_data(pic_que.get())
-                #cv2.imwrite("%s.png" % file,image27)
+                # cv2.imwrite("%s.png" % file,image27)
             else:
                 pic_que.put(image37)
 
                 with imageio.get_writer(file + '.tiff') as stack:
                     while not pic_que.empty():
                         stack.append_data(pic_que.get())
-   #             cv2.imwrite("%s.png" % file, truc)
+            #             cv2.imwrite("%s.png" % file, truc)
             print 'Image saved as %s.tiff' % file
-#
+
+    #
     # The following functions allow the user to save a video from the moment they press start recording to the moment
     # they press stop recording
 
@@ -429,11 +432,11 @@ def main():
             pictime = time.time()
             time_que.put(pictime)
 
-            #print('hi')
-            #print(image7)
-            #print('hello')
-            #print(frame_array[-1])
-            #print('hi')
+            # print('hi')
+            # print(image7)
+            # print('hello')
+            # print(frame_array[-1])
+            # print('hi')
             plt.pause(0.1)
         time.sleep(0.5)
 
@@ -441,22 +444,20 @@ def main():
             pass
         file = vidname[0]
 
-
-
-        if variablecoul.get()==1:
-            #for i in range(np.shape(frame_array)[0]):
-                # print(frame_array[i])
-                # print('coucou')
-                #ret[:, :, 0] = frame_array[i][:, :, 2]
-                #ret[:, :, 1] = frame_array[i][:, :, 1]
-                #ret[:, :, 2] = frame_array[i][:, :, 0]
-                #video2.write(ret)
+        if variablecoul.get() == 1:
+            # for i in range(np.shape(frame_array)[0]):
+            # print(frame_array[i])
+            # print('coucou')
+            # ret[:, :, 0] = frame_array[i][:, :, 2]
+            # ret[:, :, 1] = frame_array[i][:, :, 1]
+            # ret[:, :, 2] = frame_array[i][:, :, 0]
+            # video2.write(ret)
             with imageio.get_writer(file + '.tiff') as stack:
                 with open(file + '_time.csv', 'ab') as f:
                     writer = csv.writer(f)
                     while not pic_que.empty():
-                        auxi=pic_que.get()
-                        auxit=time_que.get()
+                        auxi = pic_que.get()
+                        auxit = time_que.get()
                         stack.append_data(auxi)
                         writer.writerow([auxit])
         else:
@@ -464,7 +465,7 @@ def main():
                 with open(file + '_time.csv', 'ab') as f:
                     writer = csv.writer(f)
                     while not pic_que.empty():
-                        interm=pic_que.get()
+                        interm = pic_que.get()
 
                         image27 = np.zeros(np.shape(image7), dtype=np.uint16)
 
@@ -496,15 +497,15 @@ def main():
 
                         stack.append_data(image37)
                         writer.writerow([time_que.get()])
-            #for i in range(np.shape(frame_array)[0]):
-                # print(frame_array[i])
-                # print('coucou')
-             #   ret[:, :, 0] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
-              #  ret[:, :, 1] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
-               # ret[:, :, 2] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
-                #video2.write(ret)
+            # for i in range(np.shape(frame_array)[0]):
+            # print(frame_array[i])
+            # print('coucou')
+            #   ret[:, :, 0] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+            #  ret[:, :, 1] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+            # ret[:, :, 2] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+            # video2.write(ret)
 
-       # video2.release()
+        # video2.release()
         vid[0] = 0
         print('Video saved as %s.tiff' % file)
 
@@ -521,7 +522,7 @@ def main():
         vid[0] = 1
 
         vidname[0] = filedialog.asksaveasfilename(initialdir="/", title="Select file",
-                                            filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
+                                                  filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
         vid[0] = 2
 
     # This function, once called upon, will allow the while loop in the mainloop threaded function to stop and will
@@ -648,7 +649,7 @@ def main():
         labelT.configure(text="Bath temp: %s" % spim.tempm)
 
     def halt_temp():
-        #release volume button
+        # release volume button
         boutonSV1.config(state=NORMAL)
         spim.halttempcont()
         print('halt temp')
@@ -662,44 +663,39 @@ def main():
         spim.dlo = float(valueSV2.get())
         spim.dup = float(valueSV1.get())
         spim.slp = float(valueSV3.get())
-        spim.exp = VarTR1.get()/1000
-        spim.frt = valueSV6.get()/1000
+        spim.exp = VarTR1.get() / 1000
+        spim.frt = valueSV6.get() / 1000
         spim.ste = float(valueSV7.get())
         print(spim.ste)
         spim.sendcfg()
         spim.readcfg()
 
-
         stop[0] = 1
 
         time.sleep(0.1)
-        #spim.dlo=6
-        #spim.dup=6.05
-        #spim.slp=float(valueSV3.get())
-        #time.sleep(1)
-        #spim.sendcfg()
-        #time.sleep(1)
-        #spim.startvol()
+        # spim.dlo=6
+        # spim.dup=6.05
+        # spim.slp=float(valueSV3.get())
+        # time.sleep(1)
+        # spim.sendcfg()
+        # time.sleep(1)
+        # spim.startvol()
         set_trigger()
 
-
         for cam in cam_list:
-            camera_mode(cam,"NewestFirst")
+            camera_mode(cam, "NewestFirst")
         sw = threading.Thread(target=sweep_thread)
-        #spim.readcfg()
+        # spim.readcfg()
         if valueSV5.get() == 1:
             ss = threading.Thread(target=save_sweep)
             ss.start()
 
-
         sw.start()
 
-        #while vid[0]!=1:
+        # while vid[0]!=1:
         #    pass
-        #stop_vid()
-        #print('hi')
-
-
+        # stop_vid()
+        # print('hi')
 
     def sweep_thread():
 
@@ -707,7 +703,7 @@ def main():
 
     def save_sweep():
 
-        #for cam in cam_list:
+        # for cam in cam_list:
         #    cam.EndAcquisition()
         #    cam.Width.SetValue(1500)
         #    framerate(cam)
@@ -718,9 +714,8 @@ def main():
 
         while True:
             respa = spim.ard.readline()
-            if respa[-2:]=='o\n':
-
-                #pic_que.put(np.copy(image7))
+            if respa[-2:] == 'o\n':
+                # pic_que.put(np.copy(image7))
                 pos_que.put(respa)
                 print(respa)
             if respa == "VOL\n":
@@ -728,50 +723,47 @@ def main():
         pic_pile = []
         time_pile1 = []
         time_pile2 = []
-        print(pos_que.qsize()-1)
-        image72 = np.zeros((dim[0],dim[1],3), dtype=np.uint16)
+        print(pos_que.qsize() - 1)
+        image72 = np.zeros((dim[0], dim[1], 3), dtype=np.uint16)
         image7_aux = np.zeros((dim[0], dim[1]), dtype=np.uint16)
         for i in range(pos_que.qsize()):
             print(i)
-            aux_thing1= acquire_images(cam_list[0], nodemap_tldevice[0],False)
+            aux_thing1 = acquire_images(cam_list[0], nodemap_tldevice[0], False)
             aux_thing2 = acquire_images(cam_list[1], nodemap_tldevice[1], False)
-            #print('hk')
-            thing1 = np.clip(aux[0] *aux_thing1[0] ** (aux[4]) + aux[1], 0, 255)
-            #print('hu')
+            # print('hk')
+            thing1 = np.clip(aux[0] * aux_thing1[0] ** (aux[4]) + aux[1], 0, 255)
+            # print('hu')
             thing2 = np.clip(aux2[0] * aux_thing2[0] ** (aux2[4]) + aux2[1], 0, 255)
-            #print('ha')
-
-
+            # print('ha')
 
             if varc[0].get() == 1:
                 image72[:, :, 1] = np.copy(thing1)
             else:
                 image72[:, :, 1] = np.copy(image7_aux)
-            #print('hi')
+            # print('hi')
             if varc[1].get() == 1:
                 image72[:, :, 0] = np.copy(thing2)
             else:
                 image72[:, :, 0] = np.copy(image7_aux)
             pic_pile.append(np.copy(image72))
 
-
-            time_pile1.append(aux_thing1[1]/10.0**9)
+            time_pile1.append(aux_thing1[1] / 10.0 ** 9)
             time_pile2.append(aux_thing2[1] / 10.0 ** 9)
         print(thing1)
-        #print('koooo')
+        # print('koooo')
         print(thing2)
-        #print('koooo')
+        # print('koooo')
         print(image72)
         print('min')
         print(np.min(thing2))
         print('max')
         print(np.max(thing2))
-          #  print('ho')
-        #print(respa)
+        #  print('ho')
+        # print(respa)
 
-        file=valueSV4.get()
+        file = valueSV4.get()
 
-        with imageio.get_writer(file + '.tiff',bigtiff=True) as stack:
+        with imageio.get_writer(file + '.tiff', bigtiff=True) as stack:
             with open(file + '_position.csv', 'ab') as f:
                 writer = csv.writer(f)
                 j = 0
@@ -780,27 +772,26 @@ def main():
                     auxit1 = time_pile1.pop()
                     auxit2 = time_pile2.pop()
                     print(j)
-                    j=j+1
+                    j = j + 1
                     writer.writerow([str(auxit1) + ';' + str(auxit2) + ';' + auxip[:5] + ';' + auxip[6:-1]])
                     auxi = pic_pile.pop()
                     stack.append_data(auxi)
 
         print('Volume swept')
         for cam in cam_list:
-            camera_mode(cam,"NewestOnly")
+            camera_mode(cam, "NewestOnly")
         set_continuous()
-        labelSV2[0].place(x=-1000,y=-1000)
+        labelSV2[0].place(x=-1000, y=-1000)
 
         stop[0] = 0
 
-       # print('finish')
+    # print('finish')
 
     def volumestate():
-      #  print('hi')
-        if valueSV5.get()==0:
-
+        #  print('hi')
+        if valueSV5.get() == 0:
             entreeSV4.config(state=DISABLED)
-        if valueSV5.get()==1:
+        if valueSV5.get() == 1:
             entreeSV4.config(state=NORMAL)
 
     # Laser control functions
@@ -840,43 +831,39 @@ def main():
         spim.pwr1 = float(valueL1.get()) / 1000.
         spim.pwr2 = float(valueL2.get()) / 1000.
 
-        if valueL3.get()==1:
+        if valueL3.get() == 1:
 
-            spim.lst1=True
+            spim.lst1 = True
         else:
 
             spim.lst1 = False
 
-        if valueL4.get()==1:
+        if valueL4.get() == 1:
 
-            spim.lst2=True
+            spim.lst2 = True
         else:
 
             spim.lst2 = False
 
         spim.laser_power()
 
-
-    #Stage control
+    # Stage control
 
     def mirror():
-        spim.posadj=float(valueS.get())
-        #spim.stage(5.9)
-        #spim.mirror(4095)
+        spim.posadj = float(valueS.get())
+        # spim.stage(5.9)
+        # spim.mirror(4095)
 
     def stage():
         pos = float(valueS.get())
 
-        if valueS2.get()==0:
+        if valueS2.get() == 0:
             spim.stage(pos)
-        if valueS2.get()==1:
+        if valueS2.get() == 1:
             spim.focus(pos)
 
+    bb = [0]
 
-
-
-
-    bb=[0]
     def engage():
         boutonS2.config(state=DISABLED)
 
@@ -886,69 +873,65 @@ def main():
         boutonS3.config(state=NORMAL)
         spim.engage()
         boutonS1.config(state=NORMAL)
-        bb[0]=1
+        bb[0] = 1
 
     def disengage():
         boutonS3.config(state=DISABLED)
         boutonS2.config(state=NORMAL)
         spim.engage()
         boutonS1.config(state=DISABLED)
-        bb[0]=0
-
+        bb[0] = 0
 
     def raisestage():
-        if bb[0]==1:
+        if bb[0] == 1:
             spim.stage(-5)
-        if bb[0]==0:
+        if bb[0] == 0:
             spim.engage()
             spim.stage(-5)
             plt.pause(2)
             spim.disengage()
 
     def stagerr():
-        auxaux=spim.err()[-2]
+        auxaux = spim.err()[-2]
         labelS2.configure(text=' %s ' % auxaux)
 
-
-    #Trigger mode
+    # Trigger mode
 
     def set_trigger():
         buttonTR.config(state='disabled')
         buttonTR2.config(state='normal')
         buttonTR3.config(state='normal')
-        spim.exp=VarTR1.get()/1000
+        spim.exp = VarTR1.get() / 1000
         spim.sendcfg()
         for cam in cam_list:
-
-            tr.configure_trigger(cam)
+            Tr.configure_trigger(cam)
 
     def set_continuous():
         buttonTR.config(state='normal')
         buttonTR2.config(state='disabled')
         buttonTR3.config(state='disabled')
         for i, cam in enumerate(cam_list):
-            tr.reset_trigger(nodemap[i])
+            Tr.reset_trigger(nodemap[i])
 
     def trigger():
-        spim.exp = VarTR1.get()/1000
+        spim.exp = VarTR1.get() / 1000
         spim.sendcfg()
         print(spim.exp)
         spim.ard.write('FRM2\r')
-        #tic=time.time()
-        #while True:
+        # tic=time.time()
+        # while True:
         #    print ('hey')
         #    respa = spim.ard.readline()
         #    print(respa)
         #    if respa == "VOL\n":
         #        break
-        #toc=time.time()-tic
-        #print('ext=%s' % toc)
+        # toc=time.time()-tic
+        # print('ext=%s' % toc)
+
     # --------------------
     restart = [0]
     first = 0
     auto = [0]
-
-
 
     while restart[0] == 0:
 
@@ -956,7 +939,7 @@ def main():
 
         offlaser1()
         offlaser2()
-        
+
         restart[0] = 1
         # Retrieve singleton reference to system object
         system = PySpin.System.GetInstance()
@@ -968,21 +951,20 @@ def main():
         # Retrieve list of cameras from the system
         cam_list = system.GetCameras()
         num_cameras = cam_list.GetSize()
-        #if first == 0:
+        # if first == 0:
         #    num = user_selection(cam_list, num_cameras)
         # Pick the camera from the list
-        #cam = cam_list[num]
+        # cam = cam_list[num]
 
         # Initialize camera
         for cam in cam_list:
             cam.Init()
-            #print('width')
-            #print(cam.Height())
-            #cam.FactoryReset()
-            #time.sleep(0.5)
-            #cam.Width.SetValue(1632)
-            #cam.OffsetX.SetValue(408)
-
+            # print('width')
+            # print(cam.Height())
+            # cam.FactoryReset()
+            # time.sleep(0.5)
+            # cam.Width.SetValue(1632)
+            # cam.OffsetX.SetValue(408)
 
         nodemap_tldevice = [cam.GetTLDeviceNodeMap() for cam in cam_list]
 
@@ -990,15 +972,14 @@ def main():
         nodemap = [cam.GetNodeMap() for cam in cam_list]
 
         # Setting initial values for exposure time and gain
-        for i,cam in enumerate(cam_list):
+        for i, cam in enumerate(cam_list):
             expo.configure_exposure2(cam, 10000)
             expo.gain(cam, 4)
-            tr.reset_trigger(nodemap[i])
+            Tr.reset_trigger(nodemap[i])
 
         # Setting up the camera for acquisition
         for i in range(num_cameras):
             create_window(cam_list[i], nodemap[i])
-
 
         # Array to store the values for contrast, brightness and time exposure in us
         aux = np.array([1., 0., 10000, 4., 1., 0])
@@ -1010,7 +991,7 @@ def main():
         fenetre = Tk()
         fenetre.geometry("1300x700")
 
-        #Defining functions to validate entries----
+        # Defining functions to validate entries----
         def correct(inp):
 
             if inp.isdigit() or inp == '':
@@ -1042,8 +1023,7 @@ def main():
         regfn = fenetre.register(correctfn)
 
         #
-        varc=[IntVar() for cam in cam_list]
-
+        varc = [IntVar() for cam in cam_list]
 
         for i, cam in enumerate(cam_list):
 
@@ -1054,21 +1034,24 @@ def main():
             if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
                 features = node_device_information.GetFeatures()
                 node_feature = PySpin.CValuePtr(features[0])
-                Checkbutton(fenetre, text="cam: %s" % node_feature.ToString(), variable=varc[i]).place(x=20+i*100,y=520)
+                Checkbutton(fenetre, text="cam: %s" % node_feature.ToString(), variable=varc[i]).place(x=20 + i * 100,
+                                                                                                       y=520)
 
-        dim=np.shape(acquire_images(cam_list[0],nodemap_tldevice[0]))
+        dim = np.shape(acquire_images(cam_list[0], nodemap_tldevice[0]))
 
-        image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[i],nodemap_tldevice[i]), None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux[4])+ aux[1], 0, 255) for i in range(num_cameras)]
+        image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[i], nodemap_tldevice[i]), None, fx=0.25, fy=0.25,
+                                              interpolation=cv2.INTER_CUBIC) ** (aux[4]) + aux[1], 0, 255) for i in
+                  range(num_cameras)]
 
-        image7 = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1],3),dtype=np.int16)
+        image7 = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1], 3), dtype=np.int16)
         for i in range(num_cameras):
             if varc[i].get() == 1:
-                image7[:,:,i] = image5[i]
+                image7[:, :, i] = image5[i]
 
-        image6 = [ImageTk.PhotoImage(Image.fromarray(image7,mode="RGB"), master=fenetre)]
+        image6 = [ImageTk.PhotoImage(Image.fromarray(image7, mode="RGB"), master=fenetre)]
 
         # Creating the canvas for the image
-        canvas = Canvas(fenetre, width=image5[0].shape[1]+25, height=image5[0].shape[0]+25)
+        canvas = Canvas(fenetre, width=image5[0].shape[1] + 25, height=image5[0].shape[0] + 25)
         canvas.place(x=-18, y=-18)
 
         # Creating the values stored in the different entries
@@ -1113,11 +1096,8 @@ def main():
             if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
                 features = node_device_information.GetFeatures()
                 node_feature = PySpin.CValuePtr(features[0])
-                label5 = Label(fenetre, text="Parameters for camera %s" % node_feature.ToString(), bg = "cyan")
-                label5.place(x=800, y=i*100)
-
-
-
+                label5 = Label(fenetre, text="Parameters for camera %s" % node_feature.ToString(), bg="cyan")
+                label5.place(x=800, y=i * 100)
 
         label6 = Label(fenetre, text="Gamma", bg="yellow")
         label6.place(x=700, y=30)
@@ -1154,8 +1134,8 @@ def main():
 
         # labels, entries and button for the different parameters of the second camera
 
-        #label25 = Label(fenetre, text="Parameters", bg="cyan")
-        #label25.place(x=855, y=110)
+        # label25 = Label(fenetre, text="Parameters", bg="cyan")
+        # label25.place(x=855, y=110)
 
         label26 = Label(fenetre, text="Gamma", bg="yellow")
         label26.place(x=700, y=130)
@@ -1194,10 +1174,10 @@ def main():
         label5 = Label(fenetre, text="Save a frame or a video", bg="cyan")
         label5.place(x=660, y=210)
 
-        variablecoul=IntVar()
+        variablecoul = IntVar()
         variablecoul.set(1)
 
-        boutongray=Radiobutton(fenetre,text='Grayscale',variable=variablecoul,value=0)
+        boutongray = Radiobutton(fenetre, text='Grayscale', variable=variablecoul, value=0)
         boutongray.place(x=655, y=235)
 
         boutoncoul = Radiobutton(fenetre, text='Color', variable=variablecoul, value=1)
@@ -1302,12 +1282,8 @@ def main():
         valueSV3 = StringVar()
         valueSV3.set(-4486.982)
 
-
-
         valueSV4 = StringVar()
         valueSV4.set('Volume')
-
-
 
         valueSV5 = IntVar()
         valueSV5.set(1)
@@ -1318,7 +1294,7 @@ def main():
         valueSV7 = StringVar()
         valueSV7.set(0.02)
 
-        #This value is shared with another section
+        # This value is shared with another section
         VarTR1 = IntVar()
         VarTR1.set(10000)
 
@@ -1358,19 +1334,17 @@ def main():
         entreeSV6 = Entry(fenetre, textvariable=valueSV7, width=10, validate="key", validatecommand=(regfn, '%P'))
         entreeSV6.place(x=660, y=605)
 
-        buttonSV2=Checkbutton(fenetre, text="Save volume as", variable=valueSV5,command=volumestate)
-        buttonSV2.place(x=650,y=635)
+        buttonSV2 = Checkbutton(fenetre, text="Save volume as", variable=valueSV5, command=volumestate)
+        buttonSV2.place(x=650, y=635)
 
-        entreeSV4 = Entry(fenetre, textvariable=valueSV4, width=10, validate="key", validatecommand=(regfn, '%P'),state=NORMAL)
+        entreeSV4 = Entry(fenetre, textvariable=valueSV4, width=10, validate="key", validatecommand=(regfn, '%P'),
+                          state=NORMAL)
         entreeSV4.place(x=760, y=635)
 
         boutonSV1 = Button(fenetre, text="Sweep volume", command=sweep)
         boutonSV1.place(x=660, y=660)
 
-
-        labelSV2 = [Label(fenetre,text='SWEEPING VOLUME',fg='red')]
-
-
+        labelSV2 = [Label(fenetre, text='SWEEPING VOLUME', fg='red')]
 
         # Lasers control
 
@@ -1404,7 +1378,7 @@ def main():
         entreeL1 = Entry(fenetre, textvariable=valueL1, width=10, validate="key", validatecommand=(reg, '%P'))
         entreeL1.place(x=1090, y=415)
 
-        boutonL1= Button(fenetre, text="Update", command=laser)
+        boutonL1 = Button(fenetre, text="Update", command=laser)
         boutonL1.place(x=1170, y=428)
 
         labelL3 = Label(fenetre, text="561 Laser:", bg="yellow")
@@ -1424,8 +1398,8 @@ def main():
 
         # Stage
 
-        labelS1=Label(fenetre, text='Stage control',bg='Cyan')
-        labelS1.place(x=960,y=490)
+        labelS1 = Label(fenetre, text='Stage control', bg='Cyan')
+        labelS1.place(x=960, y=490)
 
         valueS = StringVar()
         valueS.set(5.45)
@@ -1433,7 +1407,7 @@ def main():
         valueS2 = IntVar()
         valueS2.set(0)
 
-        boutonS1 = Button(fenetre, text="Set stage to:", command=stage, state=DISABLED )
+        boutonS1 = Button(fenetre, text="Set stage to:", command=stage, state=DISABLED)
         boutonS1.place(x=890, y=520)
 
         entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key", validatecommand=(regfn, '%P'))
@@ -1442,7 +1416,7 @@ def main():
         boutonS2 = Button(fenetre, text='Engage', command=engage)
         boutonS2.place(x=890, y=550)
 
-        boutonS3 = Button(fenetre, text='Disengage', command=disengage,state=DISABLED)
+        boutonS3 = Button(fenetre, text='Disengage', command=disengage, state=DISABLED)
         boutonS3.place(x=940, y=550)
 
         truceee = Button(fenetre, text='Raise', command=raisestage)
@@ -1451,22 +1425,22 @@ def main():
         boutonS4 = Button(fenetre, text='Error:', command=stagerr)
         boutonS4.place(x=1090, y=550)
 
-        labelS2 = Label(fenetre, text='      ',bg='White')
+        labelS2 = Label(fenetre, text='      ', bg='White')
         labelS2.place(x=1133, y=553)
 
-        buttonS5 = Checkbutton(fenetre,text='mirror tracking',variable=valueS2,command=mirror)
-        buttonS5.place(x=1050,y=520)
+        buttonS5 = Checkbutton(fenetre, text='mirror tracking', variable=valueS2, command=mirror)
+        buttonS5.place(x=1050, y=520)
 
         # Trigger
-        labelTR1=Label(fenetre, text='Trigger control',bg='cyan').place(x=960,y=600)
+        labelTR1 = Label(fenetre, text='Trigger control', bg='cyan').place(x=960, y=600)
         buttonTR = Button(fenetre, text="Triggering mode", command=set_trigger)
         buttonTR.place(x=930, y=630)
-        buttonTR2 = Button(fenetre, text="Trigger", command=trigger,state='disabled')
+        buttonTR2 = Button(fenetre, text="Trigger", command=trigger, state='disabled')
         buttonTR2.place(x=880, y=630)
-        buttonTR3 = Button(fenetre, text="Continuous mode", command=set_continuous,state='disabled')
+        buttonTR3 = Button(fenetre, text="Continuous mode", command=set_continuous, state='disabled')
         buttonTR3.place(x=1030, y=630)
-        EntryTR1=Entry(fenetre,textvariable=VarTR1,width=10)
-        EntryTR1.place(x=940,y=660)
+        EntryTR1 = Entry(fenetre, textvariable=VarTR1, width=10)
+        EntryTR1.place(x=940, y=660)
         label1 = Label(fenetre, text="Trigger exposure time (us)", bg="yellow")
         label1.place(x=1010, y=660)
 
@@ -1478,7 +1452,7 @@ def main():
         boutonA2 = Button(fenetre, text="Run automated experiment with parameters below", command=automated2)
         boutonA2.place(x=300, y=590)
 
-        labelA2 = Label(fenetre, text="Automated Experiment",bg="Cyan")
+        labelA2 = Label(fenetre, text="Automated Experiment", bg="Cyan")
         labelA2.place(x=20, y=560)
 
         # Labels and buttons for the automated experiment
@@ -1505,8 +1479,6 @@ def main():
 
         labelA8 = Label(fenetre, text="Temperature", bg="yellow")
         labelA8.place(x=533, y=620)
-
-
 
         # ----------------------
 
@@ -1572,6 +1544,7 @@ def main():
         # a = [1]
 
         image7_aux = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1]), dtype=np.int8)
+
         def main_loop():
 
             while aux[-1] != 1:
@@ -1581,21 +1554,24 @@ def main():
 
                 # Acquiring the new image, changing contrast and brightness, and changing its format so that it's
                 # compatible with tkinter
-                #time.sleep(3)
-                aux_thing1=acquire_images(cam_list[0],nodemap_tldevice[0])
-                aux_thing2=acquire_images(cam_list[1], nodemap_tldevice[1])
-                thing1=np.clip(aux[0] * cv2.resize(aux_thing1, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux[4])+ aux[1], 0, 255)
-                thing2 = np.clip(aux2[0] * cv2.resize(aux_thing2, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux2[4]) + aux2[1], 0, 255)
+                # time.sleep(3)
+                aux_thing1 = acquire_images(cam_list[0], nodemap_tldevice[0])
+                aux_thing2 = acquire_images(cam_list[1], nodemap_tldevice[1])
+                thing1 = np.clip(
+                    aux[0] * cv2.resize(aux_thing1, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux[4]) +
+                    aux[1], 0, 255)
+                thing2 = np.clip(
+                    aux2[0] * cv2.resize(aux_thing2, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (
+                        aux2[4]) + aux2[1], 0, 255)
 
-                #image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0, 255)
+                # image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0, 255)
 
-                #print('thing1 min' , np.min(thing1))
-                #print(type(np.min(thing1)))
-                #print('thing1 max' , np.max(thing1))
-                #print('thing2 min' , np.min(thing2))
-                #print(type(np.min(thing2)))
-                #print('thing2 max' , np.max(thing2))
-
+                # print('thing1 min' , np.min(thing1))
+                # print(type(np.min(thing1)))
+                # print('thing1 max' , np.max(thing1))
+                # print('thing2 min' , np.min(thing2))
+                # print(type(np.min(thing2)))
+                # print('thing2 max' , np.max(thing2))
 
                 if varc[0].get() == 1:
                     image7[:, :, 1] = np.copy(thing1)
@@ -1607,22 +1583,20 @@ def main():
                 else:
                     image7[:, :, 0] = np.copy(image7_aux)
 
-
-                #image7[:, :, 0] = thing1
-                #image7[:, :, 1] = thing2
-                #print('hey')
-                #print(image7)
-                #print('hey')
+                # image7[:, :, 0] = thing1
+                # image7[:, :, 1] = thing2
+                # print('hey')
+                # print(image7)
+                # print('hey')
                 plt.pause(delay[0])
 
+                # print('image7 min' , np.min(image7))
+                # print('image7 max' , np.max(image7))
 
-                #print('image7 min' , np.min(image7))
-                #print('image7 max' , np.max(image7))
-
-                #image72 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
+                # image72 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
 
                 image6 = [ImageTk.PhotoImage(Image.fromarray(image7
-                                                             ,"RGB"), master=fenetre)]
+                                                             , "RGB"), master=fenetre)]
                 # Changing the image on the canvas
 
                 canvas.itemconfigure(image_on_canvas, image=image6[0])
@@ -1633,41 +1607,35 @@ def main():
                 else:
                     labelT.configure(bg='red')
 
-
-        #function to close the window and leave the devices in the right state
+        # function to close the window and leave the devices in the right state
         def doSomething():
 
-            stop[0]=0
-            aux[-1]=1
+            stop[0] = 0
+            aux[-1] = 1
             set_continuous()
             plt.pause(0.2)
             fenetre.destroy()
+
         fenetre.protocol('WM_DELETE_WINDOW', doSomething)
 
-                # canvas.itemconfigure(image_on_canvas, image=image6[0])
+        # canvas.itemconfigure(image_on_canvas, image=image6[0])
 
-        #T1 = threading.Thread(target=thread1)
-        #T2 = threading.Thread(target=thread2)
-        #T1.start()
-        #T2.start()
-
-
+        # T1 = threading.Thread(target=thread1)
+        # T2 = threading.Thread(target=thread2)
+        # T1.start()
+        # T2.start()
 
         thread = threading.Thread(target=main_loop)
         thread.start()
-
 
         fenetre.mainloop()
         aux[-1] = 1
         plt.pause(1)
         thread.join()
 
-
         # Terminating the camera
 
-
-        for i,cam in enumerate(cam_list):
-
+        for i, cam in enumerate(cam_list):
             terminate(cam)
             cam = None
 
@@ -1689,17 +1657,12 @@ def main():
 
         if auto[0] == 1:
             sae.function()
-            restart[0]=0
+            restart[0] = 0
         if auto[0] == 2:
             sae.function(2, params2[0])
-            restart[0]=0
+            restart[0] = 0
         auto[0] = 0
         first = 1
-
-
-
-
-
 
     print('blackfly_preview successfully exited')
 
