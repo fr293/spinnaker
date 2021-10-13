@@ -9,6 +9,7 @@
 # image is an image processing package, used to manipulate images
 # numpy is a numerical processing package, used to manipulate images
 
+
 import os
 from Tkinter import IntVar
 import PySpin
