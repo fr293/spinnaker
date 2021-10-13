@@ -1,4 +1,4 @@
-# noam demri and fergus riche fr293 wrote this to control the Selective Plane Illumination Magnetic Manipulator
+# noam demri nsd31 and fergus riche fr293 wrote this to control the Selective Plane Illumination Magnetic Manipulator
 # Microscope [SPIMMM]
 # description of function: this script generates a preview of the SPIMMM cameras
 
@@ -11,7 +11,6 @@
 
 import os
 from Tkinter import IntVar
-
 import PySpin
 import matplotlib.pyplot as plt
 import cv2
@@ -35,11 +34,8 @@ from tkinter import filedialog
 import serial
 # some_file.py
 import sys
-
 import spimm_automated_experiment as sae
-
 import spimmm_obj as so
-
 import Trigger as Tr
 
 
@@ -52,8 +48,13 @@ class TriggerType:
 
 
 CHOSEN_TRIGGER = TriggerType.HARDWARE
-
 delay = [0.1]
+
+global image_data
+
+
+# a deprecated variable to track a user selected camera choice
+# global num
 
 
 # register and list cameras
@@ -109,33 +110,32 @@ def framerate(cam):
 
 
 # This function gets one image from the selected camera every time it is called upon
-def acquire_images(cam, nodemap_tldevice, time=True):
-    global image_data
-
+def acquire_images(cam, nodemap_tldevice, timestamp=False):
+    # global image_data
     try:
-
-        # device_serial_number = ''
         node_device_serial_number = PySpin.CStringPtr(nodemap_tldevice.GetNode('DeviceSerialNumber'))
         if PySpin.IsAvailable(node_device_serial_number) and PySpin.IsReadable(node_device_serial_number):
             # device_serial_number = node_device_serial_number.GetValue()
-
             try:
-                # With getnewimage we can save the current image
                 image_result = cam.GetNextImage()
 
                 if image_result.IsIncomplete():
                     print ('Image incomplete with image status %d ...' % image_result.GetImageStatus())
-
                 else:
-
                     # width = image_result.GetWidth()
                     # height = image_result.GetHeight()
                     # print 'Grabbed Image %d, width = %d, height = %d' % (i, width, height)
 
                     # Now the saved image has to be modified in order to be read as a numpy array
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
-                    image_data = image_converted.GetNDArray()
+                    image_array = image_converted.GetNDArray()
                     image_result.Release()
+                    # The numpy array that contains the image is just modified in order to get a smaller image
+                    # image_data2 = cv2.resize(image_data, None, fx=ratio, fy=ratio, interpolation=cv2.INTER_CUBIC)
+                    if timestamp:
+                        return image_array, image_result.GetTimeStamp()
+                    else:
+                        return image_array
 
             except PySpin.SpinnakerException as ex:
                 print ('Error: %s' % ex)
@@ -145,35 +145,15 @@ def acquire_images(cam, nodemap_tldevice, time=True):
         print ('Error: %s' % ex)
         return False
 
-    # The numpy array that contains the image is just modified in order to get a smaller image
-    # image_data2 = cv2.resize(image_data, None, fx=ratio, fy=ratio, interpolation=cv2.INTER_CUBIC)
-    if time:
-        return image_data
-    else:
-        return image_data, image_result.GetTimeStamp()
-
 
 def acquire_images2(cam_list):
-    """
-    This function acquires and saves 10 images from each device.
-
-    :param cam_list: List of cameras
-    :type cam_list: CameraList
-    :return: True if successful, False otherwise.
-    :rtype: bool
-    """
-
+    # adapted from the multiple acquisition example
+    # In order to work with simultaneous camera streams, nested loops are
+    # needed. It is important that the inner loop be the one iterating
+    # through the cameras; otherwise, all images will be grabbed from a
+    # single camera before grabbing any images from another.
     try:
         result = []
-
-        # Retrieve, convert, and save images for each camera
-        #
-        # *** NOTES ***
-        # In order to work with simultaneous camera streams, nested loops are
-        # needed. It is important that the inner loop be the one iterating
-        # through the cameras; otherwise, all images will be grabbed from a
-        # single camera before grabbing any images from another.
-
         for i, cam in enumerate(cam_list):
             try:
                 # Retrieve next received image and ensure image completion
@@ -183,14 +163,15 @@ def acquire_images2(cam_list):
                     print'Image incomplete with image status %d ... \n' % image_result.GetImageStatus()
                 else:
                     # Print image information
-                    width = image_result.GetWidth()
-                    height = image_result.GetHeight()
+                    # width = image_result.GetWidth()
+                    # height = image_result.GetHeight()
 
                     # Convert image to mono 8
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
-                    image_data = image_converted.GetNDArray()
-                    image_data2 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
-                    result.append(image_data2)
+                    image_array = image_converted.GetNDArray()
+                    image_array2 = cv2.resize(image_array, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
+                    result.append(image_array2)
+                    return result
 
                 # Release image
                 image_result.Release()
@@ -200,8 +181,6 @@ def acquire_images2(cam_list):
 
     except PySpin.SpinnakerException as ex:
         print'Error: %s' % ex
-
-    return result
 
 
 def camera_mode(cam, mode):
@@ -329,11 +308,6 @@ def terminate(cam):
 
 
 def main():
-    # ----------------------
-
-    # This function will modify the settings once called upon
-    global num
-
     def recupere():
         aux[0] = float(entree1.get())
         aux[1] = float(entree2.get())
@@ -356,35 +330,33 @@ def main():
 
     # This function saves the current frame once called upon
     def save():
-        # print('hi')
-        # print(image7)
         image27 = np.zeros(np.shape(image7), dtype=np.int64)
 
-        for i in range(np.shape(image7)[0]):
-            for j in range(np.shape(image7)[1]):
+        for row in range(np.shape(image7)[0]):
+            for col in range(np.shape(image7)[1]):
 
-                if image7[i, j, 1] < 0:
-                    image27[i, j, 1] = image7[i, j, 1] + 255
+                if image7[row, col, 1] < 0:
+                    image27[row, col, 1] = image7[row, col, 1] + 255
                 else:
-                    image27[i, j, 1] = image7[i, j, 1]
+                    image27[row, col, 1] = image7[row, col, 1]
 
-                if image7[i, j, 0] < 0:
-                    image27[i, j, 0] = image7[i, j, 0] + 255
+                if image7[row, col, 0] < 0:
+                    image27[row, col, 0] = image7[row, col, 0] + 255
                 else:
-                    image27[i, j, 0] = image7[i, j, 0]
+                    image27[row, col, 0] = image7[row, col, 0]
 
         truc = (image27[:, :, 1] + image27[:, :, 0]) / 2
 
         image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.uint16)
 
-        for i in range(np.shape(image7)[0]):
-            for j in range(np.shape(image7)[1]):
+        for row in range(np.shape(image7)[0]):
+            for col in range(np.shape(image7)[1]):
 
-                if truc[i, j] > 127:
-                    image37[i, j] = truc[i, j] - 255
+                if truc[row, col] > 127:
+                    image37[row, col] = truc[row, col] - 255
 
                 else:
-                    image37[i, j] = truc[i, j]
+                    image37[row, col] = truc[row, col]
         # print(truc)
         # new_im = Image.fromarray(truc)
 
@@ -396,24 +368,23 @@ def main():
         # print(np.max(image27))
 
         pic_que = Queue.Queue()
-        file = filedialog.asksaveasfilename(initialdir="/", title="Select file",
-                                            filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
-        if file != None:
+        filepath = filedialog.asksaveasfilename(initialdir="/", title="Select file",
+                                                filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
+        if filepath is not None:
             if variablecoul.get() == 1:
-
                 pic_que.put(image7)
-                with imageio.get_writer(file + '.tiff') as stack:
+                with imageio.get_writer(filepath + '.tiff') as stack:
                     while not pic_que.empty():
                         stack.append_data(pic_que.get())
                 # cv2.imwrite("%s.png" % file,image27)
             else:
                 pic_que.put(image37)
 
-                with imageio.get_writer(file + '.tiff') as stack:
+                with imageio.get_writer(filepath + '.tiff') as stack:
                     while not pic_que.empty():
                         stack.append_data(pic_que.get())
             #             cv2.imwrite("%s.png" % file, truc)
-            print 'Image saved as %s.tiff' % file
+            print 'Image saved as %s.tiff' % filepath
 
     #
     # The following functions allow the user to save a video from the moment they press start recording to the moment
@@ -431,29 +402,22 @@ def main():
             pic_que.put(np.copy(image7))
             pictime = time.time()
             time_que.put(pictime)
-
-            # print('hi')
-            # print(image7)
-            # print('hello')
-            # print(frame_array[-1])
-            # print('hi')
             plt.pause(0.1)
         time.sleep(0.5)
 
         while vid[0] == 1:
             pass
-        file = vidname[0]
+        filepath = vidname[0]
 
         if variablecoul.get() == 1:
             # for i in range(np.shape(frame_array)[0]):
             # print(frame_array[i])
-            # print('coucou')
             # ret[:, :, 0] = frame_array[i][:, :, 2]
             # ret[:, :, 1] = frame_array[i][:, :, 1]
             # ret[:, :, 2] = frame_array[i][:, :, 0]
             # video2.write(ret)
-            with imageio.get_writer(file + '.tiff') as stack:
-                with open(file + '_time.csv', 'ab') as f:
+            with imageio.get_writer(filepath + '.tiff') as stack:
+                with open(filepath + '_time.csv', 'ab') as f:
                     writer = csv.writer(f)
                     while not pic_que.empty():
                         auxi = pic_que.get()
@@ -461,45 +425,44 @@ def main():
                         stack.append_data(auxi)
                         writer.writerow([auxit])
         else:
-            with imageio.get_writer(file + '.tiff') as stack:
-                with open(file + '_time.csv', 'ab') as f:
+            with imageio.get_writer(filepath + '.tiff') as stack:
+                with open(filepath + '_time.csv', 'ab') as f:
                     writer = csv.writer(f)
                     while not pic_que.empty():
                         interm = pic_que.get()
 
                         image27 = np.zeros(np.shape(image7), dtype=np.uint16)
 
-                        for i in range(np.shape(image7)[0]):
-                            for j in range(np.shape(image7)[1]):
+                        for row in range(np.shape(image7)[0]):
+                            for col in range(np.shape(image7)[1]):
 
-                                if interm[i, j, 1] < 0:
-                                    image27[i, j, 1] = interm[i, j, 1] + 255
+                                if interm[row, col, 1] < 0:
+                                    image27[row, col, 1] = interm[row, col, 1] + 255
                                 else:
-                                    image27[i, j, 1] = interm[i, j, 1]
+                                    image27[row, col, 1] = interm[row, col, 1]
 
-                                if image7[i, j, 0] < 0:
-                                    image27[i, j, 0] = interm[i, j, 0] + 255
+                                if image7[row, col, 0] < 0:
+                                    image27[row, col, 0] = interm[row, col, 0] + 255
                                 else:
-                                    image27[i, j, 0] = interm[i, j, 0]
+                                    image27[row, col, 0] = interm[row, col, 0]
 
                         truc = (image27[:, :, 1] + image27[:, :, 0]) / 2
 
                         image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.int16)
 
-                        for i in range(np.shape(image7)[0]):
-                            for j in range(np.shape(image7)[1]):
+                        for row in range(np.shape(image7)[0]):
+                            for col in range(np.shape(image7)[1]):
 
-                                if truc[i, j] > 127:
-                                    image37[i, j] = truc[i, j] - 255
+                                if truc[row, col] > 127:
+                                    image37[row, col] = truc[row, col] - 255
 
                                 else:
-                                    image37[i, j] = truc[i, j]
+                                    image37[row, col] = truc[row, col]
 
                         stack.append_data(image37)
                         writer.writerow([time_que.get()])
             # for i in range(np.shape(frame_array)[0]):
             # print(frame_array[i])
-            # print('coucou')
             #   ret[:, :, 0] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
             #  ret[:, :, 1] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
             # ret[:, :, 2] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
@@ -507,7 +470,7 @@ def main():
 
         # video2.release()
         vid[0] = 0
-        print('Video saved as %s.tiff' % file)
+        print('Video saved as %s.tiff' % filepath)
 
         bouton8.configure(state=DISABLED)
         bouton7.configure(state=NORMAL)
@@ -749,16 +712,11 @@ def main():
 
             time_pile1.append(aux_thing1[1] / 10.0 ** 9)
             time_pile2.append(aux_thing2[1] / 10.0 ** 9)
-        print(thing1)
-        # print('koooo')
-        print(thing2)
-        # print('koooo')
-        print(image72)
-        print('min')
-        print(np.min(thing2))
-        print('max')
-        print(np.max(thing2))
-        #  print('ho')
+        # print(thing1)
+        # print(thing2)
+        # print(image72)
+        # print(np.min(thing2))
+        # print(np.max(thing2))
         # print(respa)
 
         file = valueSV4.get()
@@ -832,17 +790,13 @@ def main():
         spim.pwr2 = float(valueL2.get()) / 1000.
 
         if valueL3.get() == 1:
-
             spim.lst1 = True
         else:
-
             spim.lst1 = False
 
         if valueL4.get() == 1:
-
             spim.lst2 = True
         else:
-
             spim.lst2 = False
 
         spim.laser_power()
@@ -984,8 +938,6 @@ def main():
         # Array to store the values for contrast, brightness and time exposure in us
         aux = np.array([1., 0., 10000, 4., 1., 0])
         aux2 = np.array([1., 0., 10000, 4., 1., 0])
-
-        # Time between each frame in s
 
         # Initiating the window for the preview's GUI
         fenetre = Tk()
