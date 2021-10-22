@@ -33,7 +33,6 @@ import power_supply_current_controller as pscc
 import power_supply_current_controller_threaded as pscct
 from tkinter import filedialog
 import serial
-# some_file.py
 import sys
 import spimm_automated_experiment as sae
 import spimmm_obj as so
@@ -70,19 +69,13 @@ global image_data
 # Function to register the different cameras
 def camera_registration(cam_list, num_cameras):
     print('Number of cameras detected: %d' % num_cameras)
-    print (' ')
-
     for i, cam in enumerate(cam_list):
         try:
             print ('Camera number: %d' % i)
-
             # Retrieve TL device nodemap and print device information
             nodemap = cam.GetTLDeviceNodeMap()
-
             try:
-
                 node_device_information = PySpin.CCategoryPtr(nodemap.GetNode('DeviceInformation'))
-
                 if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
                     features = node_device_information.GetFeatures()
                     node_feature = PySpin.CValuePtr(features[0])
@@ -123,11 +116,6 @@ def acquire_images(cam, nodemap_tldevice, timestamp=False):
                 if image_result.IsIncomplete():
                     print ('Image incomplete with image status %d ...' % image_result.GetImageStatus())
                 else:
-                    # width = image_result.GetWidth()
-                    # height = image_result.GetHeight()
-                    # print 'Grabbed Image %d, width = %d, height = %d' % (i, width, height)
-
-                    # Now the saved image has to be modified in order to be read as a numpy array
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_array = image_converted.GetNDArray()
                     image_result.Release()
@@ -163,11 +151,6 @@ def acquire_images2(cam_list):
                 if image_result.IsIncomplete():
                     print'Image incomplete with image status %d ... \n' % image_result.GetImageStatus()
                 else:
-                    # Print image information
-                    # width = image_result.GetWidth()
-                    # height = image_result.GetHeight()
-
-                    # Convert image to mono 8
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
                     image_array = image_converted.GetNDArray()
                     image_array2 = cv2.resize(image_array, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
@@ -240,10 +223,9 @@ def camera_mode(cam, mode):
 # This function sets up the camera so that it's ready for acquisition
 def create_window(cam, nodemap):
     try:
-
         framerate(cam)
-
         node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode('AcquisitionMode'))
+
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
             print ('Unable to set acquisition mode to continuous (enum retrieval). Aborting...')
             return False
@@ -258,26 +240,10 @@ def create_window(cam, nodemap):
 
         # Retrieve integer value from entry node
         acquisition_mode_continuous = node_acquisition_mode_continuous.GetValue()
-
         # Set integer value from entry node as new value of enumeration node
         node_acquisition_mode.SetIntValue(acquisition_mode_continuous)
-
         print('Acquisition mode set to continuous...')
-
         camera_mode(cam, 'NewestOnly')
-
-        # ---------------------
-        #  Begin acquiring images
-        #
-        #  *** NOTES ***
-        #  What happens when the camera begins acquiring images depends on the
-        #  acquisition mode. Single frame captures only a single image, multi
-        #  frame catures a set number of images, and continuous captures a
-        #  continuous stream of images. Because the example calls for the
-        #  retrieval of 10 images, continuous mode has been set.
-        #
-        #  *** LATER ***
-        #  Image acquisition must be ended when no more images are needed.
         cam.BeginAcquisition()
         print ('Acquiring images...\n\n')
 
@@ -298,33 +264,35 @@ def update_window(cam, nodemap_tldevice):
 # This function resets the settings of contrast and gain to their original values, and then ends acquisition
 def terminate(cam):
     # plt.close()
-
     expo.reset_exposure(cam)
     cam.GainAuto.SetValue(PySpin.GainAuto_Continuous)
     cam.EndAcquisition()
     # Deinitialize camera
     cam.DeInit()
-
     return True
 
 
 def main():
-    def recupere():
-        aux[0] = float(entree1.get())
-        aux[1] = float(entree2.get())
-        aux[2] = int(entree3.get())
-        aux[3] = entree4.get()
-        aux[4] = 1. / float(entree6.get())
+    stop = [0]
+    vid = [0]
+    vidname = ['hh']
+
+    def change_camera1_params():
+        aux[0] = float(cam1_contrast_field.get())
+        aux[1] = float(cam1_brightness_field.get())
+        aux[2] = int(cam1_exposure_field.get())
+        aux[3] = cam1_gain_field.get()
+        aux[4] = 1. / float(cam1_gamma_field.get())
 
         expo.configure_exposure2(cam_list[0], aux[2])
         expo.gain(cam_list[0], aux[3])
 
-    def recupere2():
-        aux2[0] = float(entree21.get())
-        aux2[1] = float(entree22.get())
-        aux2[2] = int(entree23.get())
-        aux2[3] = entree24.get()
-        aux2[4] = 1. / float(entree26.get())
+    def change_camera2_params():
+        aux2[0] = float(cam2_contrast_field.get())
+        aux2[1] = float(cam2_brightness_field.get())
+        aux2[2] = int(cam2_exposure_field.get())
+        aux2[3] = cam2_gain_field.get()
+        aux2[4] = 1. / float(cam1_gamma_field.get())
 
         expo.configure_exposure2(cam_list[1], aux2[2])
         expo.gain(cam_list[1], aux2[3])
@@ -372,7 +340,7 @@ def main():
         filepath = filedialog.asksaveasfilename(initialdir="/", title="Select file",
                                                 filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
         if filepath is not None:
-            if variablecoul.get() == 1:
+            if save_colour_setting.get() == 1:
                 pic_que.put(image7)
                 with imageio.get_writer(filepath + '.tiff') as stack:
                     while not pic_que.empty():
@@ -391,11 +359,7 @@ def main():
     # The following functions allow the user to save a video from the moment they press start recording to the moment
     # they press stop recording
 
-    vid = [0]
-    vidname = ['hh']
-
     def video():
-
         pic_que = Queue.Queue()
         time_que = Queue.Queue()
 
@@ -410,7 +374,7 @@ def main():
             pass
         filepath = vidname[0]
 
-        if variablecoul.get() == 1:
+        if save_colour_setting.get() == 1:
             # for i in range(np.shape(frame_array)[0]):
             # print(frame_array[i])
             # ret[:, :, 0] = frame_array[i][:, :, 2]
@@ -473,12 +437,12 @@ def main():
         vid[0] = 0
         print('Video saved as %s.tiff' % filepath)
 
-        bouton8.configure(state=DISABLED)
-        bouton7.configure(state=NORMAL)
+        stop_record_button.configure(state='disabled')
+        start_record_button.configure(state='normal')
 
     def start_video():
-        bouton7.configure(state=DISABLED)
-        bouton8.configure(state=NORMAL)
+        start_record_button.configure(state='disabled')
+        stop_record_button.configure(state='normal')
         thread2 = threading.Thread(target=video)
         thread2.start()
 
@@ -495,10 +459,10 @@ def main():
         restart[0] = 1
         aux[-1] = 1
         plt.pause(0.2)
-        fenetre.destroy()
+        window.destroy()
 
-    # These two function control q variable that can stop or resume the main loop
-    stop = [0]
+    # These two function control a variable that can stop or resume the main loop
+
 
     def freeze():
         stop[0] = 1
@@ -509,7 +473,6 @@ def main():
     # The following functions are designed to thread a process that activates the magnets with the parameters chosen
     # by the user
     def magnet():
-
         conf = direction.get()
         amp = amplitude.get()
         dur = float(duration.get())
@@ -528,11 +491,11 @@ def main():
 
     def button_control():
         time_stop = float(duration.get()) + 1.1
-        boutonM1.config(state=DISABLED)
-        boutonM2.config(state=DISABLED)
+        mag_button.config(state='disabled')
+        mag_pulse_button.config(state='disabled')
         plt.pause(time_stop)
-        boutonM1.config(state=NORMAL)
-        boutonM2.config(state=NORMAL)
+        mag_button.config(state='normal')
+        mag_pulse_button.config(state='normal')
 
     def start_magnet():
         bout = threading.Thread(target=button_control)
@@ -542,7 +505,6 @@ def main():
         mag.start()
 
     def magnet2():
-
         conf = direction.get()
         amp = amplitude.get()
         dur = 0.5
@@ -559,7 +521,7 @@ def main():
         time.sleep(0.02)
         pscc.close_controller(connection_object)
 
-    def start_magnet2():
+    def pulse_magnet():
         bout = threading.Thread(target=button_control)
         bout.start()
 
@@ -572,85 +534,72 @@ def main():
         auto[0] = 1
         aux[-1] = 1
         time.sleep(0.2)
-        fenetre.destroy()
+        window.destroy()
 
     rows = 50
     columns = 8
     params2 = [[]]
 
     def automated2():
-
         auxi2 = columns
         auxi = 0
         while auxi2 == columns and auxi < rows:
-
             auxi2 = 0
-            for j in range(columns):
-                if Value[auxi][j].get() != '':
+            for col in range(columns):
+                if value[auxi][col].get() != '':
                     auxi2 = auxi2 + 1
             if auxi2 == columns:
                 auxi = auxi + 1
-
-        params2[0] = [[0 for j in range(columns)] for i in range(auxi)]
-
+        params2[0] = [[0 for col in range(columns)] for row in range(auxi)]
         for rank in range(0, auxi):
-            params2[0][rank] = [Value[rank][0].get(), int(Value[rank][1].get()), int(Value[rank][2].get()),
-                                float(Value[rank][3].get()), float(Value[rank][4].get()), int(Value[rank][5].get()),
-                                float(Value[rank][6].get()), int(Value[rank][7].get())]
-
+            params2[0][rank] = [value[rank][0].get(), int(value[rank][1].get()), int(value[rank][2].get()),
+                                float(value[rank][3].get()), float(value[rank][4].get()), int(value[rank][5].get()),
+                                float(value[rank][6].get()), int(value[rank][7].get())]
         auto[0] = 2
         aux[-1] = 1
         time.sleep(0.2)
-        fenetre.destroy()
+        window.destroy()
 
     # Temperature control
 
     def set_temp():
         # block volume button
-        boutonSV1.config(state=DISABLED)
-        spim.tem = float(valueT.get())
+        sweep_vol_button.config(state='disabled')
+        spim.tem = float(temperature_input.get())
         spim.starttempcont()
-        labelT.configure(text="Bath temp: %s" % spim.tempm)
+        temperature_readout.configure(text="Bath temp: %s" % spim.tempm)
 
     def halt_temp():
         # release volume button
-        boutonSV1.config(state=NORMAL)
+        sweep_vol_button.config(state='normal')
         spim.halttempcont()
         print('halt temp')
 
     # Sweep volume control
 
     def sweep():
-
         print('Starting sweep')
 
-        spim.dlo = float(valueSV2.get())
-        spim.dup = float(valueSV1.get())
-        spim.slp = float(valueSV3.get())
-        spim.exp = VarTR1.get() / 1000
-        spim.frt = valueSV6.get() / 1000
-        spim.ste = float(valueSV7.get())
-        print(spim.ste)
+        spim.dlo = float(lower_z_input.get())
+        spim.dup = float(upper_z_input.get())
+        spim.slp = float(mirror_slope_input.get())
+        spim.exp = exposure_input.get() / 1000
+        spim.frt = frame_period_input.get() / 1000
+        spim.ste = float(z_step_input.get())
+
         spim.sendcfg()
         spim.readcfg()
 
         stop[0] = 1
 
         time.sleep(0.1)
-        # spim.dlo=6
-        # spim.dup=6.05
-        # spim.slp=float(valueSV3.get())
-        # time.sleep(1)
-        # spim.sendcfg()
-        # time.sleep(1)
-        # spim.startvol()
         set_trigger()
 
-        for cam in cam_list:
-            camera_mode(cam, "NewestFirst")
+        for camera in cam_list:
+            camera_mode(camera, "NewestFirst")
         sw = threading.Thread(target=sweep_thread)
         # spim.readcfg()
-        if valueSV5.get() == 1:
+        if save_volume_input.get() == 1:
             ss = threading.Thread(target=save_sweep)
             ss.start()
 
@@ -662,96 +611,70 @@ def main():
         # print('hi')
 
     def sweep_thread():
-
         spim.tkv()
 
     def save_sweep():
-
-        # for cam in cam_list:
-        #    cam.EndAcquisition()
-        #    cam.Width.SetValue(1500)
-        #    framerate(cam)
-        #    cam.BeginAcquisition()
-
-        labelSV2[0].place(x=250, y=250)
+        sweeping_indicator[0].place(x=250, y=250)
         pos_que = Queue.Queue()
 
         while True:
-            respa = spim.ard.readline()
-            if respa[-2:] == 'o\n':
-                # pic_que.put(np.copy(image7))
-                pos_que.put(respa)
-                print(respa)
-            if respa == "VOL\n":
+            response = spim.ard.readline()
+            if response[-2:] == 'o\n':
+                pos_que.put(response)
+            if response == "VOL\n":
                 break
+
         pic_pile = []
         time_pile1 = []
         time_pile2 = []
         print(pos_que.qsize() - 1)
         image72 = np.zeros((dim[0], dim[1], 3), dtype=np.uint16)
-        image7_aux = np.zeros((dim[0], dim[1]), dtype=np.uint16)
-        for i in range(pos_que.qsize()):
-            print(i)
+        image7_aux_inner = np.zeros((dim[0], dim[1]), dtype=np.uint16)
+        for item in range(pos_que.qsize()):
             aux_thing1 = acquire_images(cam_list[0], nodemap_tldevice[0], False)
             aux_thing2 = acquire_images(cam_list[1], nodemap_tldevice[1], False)
-            # print('hk')
             thing1 = np.clip(aux[0] * aux_thing1[0] ** (aux[4]) + aux[1], 0, 255)
-            # print('hu')
             thing2 = np.clip(aux2[0] * aux_thing2[0] ** (aux2[4]) + aux2[1], 0, 255)
-            # print('ha')
 
-            if varc[0].get() == 1:
+            if camera_display[0].get() == 1:
                 image72[:, :, 1] = np.copy(thing1)
             else:
-                image72[:, :, 1] = np.copy(image7_aux)
-            # print('hi')
-            if varc[1].get() == 1:
+                image72[:, :, 1] = np.copy(image7_aux_inner)
+            if camera_display[1].get() == 1:
                 image72[:, :, 0] = np.copy(thing2)
             else:
-                image72[:, :, 0] = np.copy(image7_aux)
+                image72[:, :, 0] = np.copy(image7_aux_inner)
             pic_pile.append(np.copy(image72))
 
             time_pile1.append(aux_thing1[1] / 10.0 ** 9)
             time_pile2.append(aux_thing2[1] / 10.0 ** 9)
-        # print(thing1)
-        # print(thing2)
-        # print(image72)
-        # print(np.min(thing2))
-        # print(np.max(thing2))
-        # print(respa)
 
-        file = valueSV4.get()
+        volume_filename = filename_imput.get()
 
-        with imageio.get_writer(file + '.tiff', bigtiff=True) as stack:
-            with open(file + '_position.csv', 'ab') as f:
+        with imageio.get_writer(volume_filename + '.tiff', bigtiff=True) as stack:
+            with open(volume_filename + '_position.csv', 'ab') as f:
                 writer = csv.writer(f)
-                j = 0
                 while not pos_que.empty():
-                    auxip = pos_que.get()
-                    auxit1 = time_pile1.pop()
-                    auxit2 = time_pile2.pop()
-                    print(j)
-                    j = j + 1
-                    writer.writerow([str(auxit1) + ';' + str(auxit2) + ';' + auxip[:5] + ';' + auxip[6:-1]])
-                    auxi = pic_pile.pop()
-                    stack.append_data(auxi)
+                    position = pos_que.get()
+                    capture_time_1 = time_pile1.pop()
+                    capture_time_2 = time_pile2.pop()
+                    writer.writerow([str(capture_time_1) + ';' + str(capture_time_2) + ';' + position[:5] + ';' + position[6:-1]])
+                    image = pic_pile.pop()
+                    stack.append_data(image)
 
         print('Volume swept')
-        for cam in cam_list:
-            camera_mode(cam, "NewestOnly")
+        for cameras in cam_list:
+            camera_mode(cameras, "NewestOnly")
         set_continuous()
-        labelSV2[0].place(x=-1000, y=-1000)
+        sweeping_indicator[0].place(x=-1000, y=-1000)
 
         stop[0] = 0
 
-    # print('finish')
-
     def volumestate():
-        #  print('hi')
-        if valueSV5.get() == 0:
-            entreeSV4.config(state=DISABLED)
-        if valueSV5.get() == 1:
-            entreeSV4.config(state=NORMAL)
+        if save_volume_input.get() == 0:
+            exposure_field.config(state='disabled')
+        if save_volume_input.get() == 1:
+            exposure_field.config(state='normal')
 
     # Laser control functions
 
@@ -776,26 +699,26 @@ def main():
         spim.las2.close()
 
     def powlaser1():
-        pow = float(valueL1.get()) / 1000.
-        spim.pwr1 = pow
+        power = float(yellow_power_input.get()) / 1000.
+        spim.pwr1 = power
         spim.laser_power()
 
     def powlaser2():
-        pow2 = float(valueL2.get()) / 1000.
-        spim.pwr2 = pow2
+        power = float(yellow_power_input.get()) / 1000.
+        spim.pwr2 = power
         spim.laser_power()
 
     def laser():
         spim.open_ports()
-        spim.pwr1 = float(valueL1.get()) / 1000.
-        spim.pwr2 = float(valueL2.get()) / 1000.
+        spim.pwr1 = float(yellow_power_input.get()) / 1000.
+        spim.pwr2 = float(yellow_power_input.get()) / 1000.
 
-        if valueL3.get() == 1:
+        if blue_state_input.get() == 1:
             spim.lst1 = True
         else:
             spim.lst1 = False
 
-        if valueL4.get() == 1:
+        if yellow_state_input.get() == 1:
             spim.lst2 = True
         else:
             spim.lst2 = False
@@ -805,83 +728,66 @@ def main():
     # Stage control
 
     def mirror():
-        spim.posadj = float(valueS.get())
-        # spim.stage(5.9)
-        # spim.mirror(4095)
+        spim.posadj = float(stage_pos_input.get())
 
     def stage():
-        pos = float(valueS.get())
+        pos = float(stage_pos_input.get())
 
-        if valueS2.get() == 0:
+        if mirror_track_input.get() == 0:
             spim.stage(pos)
-        if valueS2.get() == 1:
+        if mirror_track_input.get() == 1:
             spim.focus(pos)
 
-    bb = [0]
-
     def engage():
-        boutonS2.config(state=DISABLED)
-
+        stage_engage_button.config(state='disabled')
         spim.rbt()
         plt.pause(3)
-
-        boutonS3.config(state=NORMAL)
+        stage_disengage_button.config(state='normal')
         spim.engage()
-        boutonS1.config(state=NORMAL)
-        bb[0] = 1
+        stage_update_button.config(state='normal')
 
     def disengage():
-        boutonS3.config(state=DISABLED)
-        boutonS2.config(state=NORMAL)
+        stage_disengage_button.config(state='disabled')
+        stage_engage_button.config(state='normal')
         spim.engage()
-        boutonS1.config(state=DISABLED)
-        bb[0] = 0
+        stage_update_button.config(state='disabled')
 
     def raisestage():
-        if bb[0] == 1:
+        if spim.eng:
             spim.stage(-5)
-        if bb[0] == 0:
+        else:
             spim.engage()
             spim.stage(-5)
             plt.pause(2)
             spim.disengage()
 
     def stagerr():
-        auxaux = spim.err()[-2]
-        labelS2.configure(text=' %s ' % auxaux)
+        error_code = spim.err()[-2]
+        stage_error_label.configure(text=' %s ' % error_code)
 
     # Trigger mode
 
     def set_trigger():
-        buttonTR.config(state='disabled')
-        buttonTR2.config(state='normal')
-        buttonTR3.config(state='normal')
-        spim.exp = VarTR1.get() / 1000
+        trigger_mode_button.config(state='disabled')
+        single_trigger_button.config(state='normal')
+        software_trigger_button.config(state='normal')
+        spim.exp = exposure_input.get() / 1000
         spim.sendcfg()
-        for cam in cam_list:
-            Tr.configure_trigger(cam)
+        for camera in cam_list:
+            Tr.configure_trigger(camera)
 
     def set_continuous():
-        buttonTR.config(state='normal')
-        buttonTR2.config(state='disabled')
-        buttonTR3.config(state='disabled')
-        for i, cam in enumerate(cam_list):
-            Tr.reset_trigger(nodemap[i])
+        trigger_mode_button.config(state='normal')
+        single_trigger_button.config(state='disabled')
+        software_trigger_button.config(state='disabled')
+        for count, camera in enumerate(cam_list):
+            Tr.reset_trigger(nodemap[count])
 
     def trigger():
-        spim.exp = VarTR1.get() / 1000
+        spim.exp = exposure_input.get() / 1000
         spim.sendcfg()
         print(spim.exp)
         spim.ard.write('FRM2\r')
-        # tic=time.time()
-        # while True:
-        #    print ('hey')
-        #    respa = spim.ard.readline()
-        #    print(respa)
-        #    if respa == "VOL\n":
-        #        break
-        # toc=time.time()-tic
-        # print('ext=%s' % toc)
 
     # --------------------
     restart = [0]
@@ -914,12 +820,6 @@ def main():
         # Initialize camera
         for cam in cam_list:
             cam.Init()
-            # print('width')
-            # print(cam.Height())
-            # cam.FactoryReset()
-            # time.sleep(0.5)
-            # cam.Width.SetValue(1632)
-            # cam.OffsetX.SetValue(408)
 
         nodemap_tldevice = [cam.GetTLDeviceNodeMap() for cam in cam_list]
 
@@ -927,41 +827,40 @@ def main():
         nodemap = [cam.GetNodeMap() for cam in cam_list]
 
         # Setting initial values for exposure time and gain
-        for i, cam in enumerate(cam_list):
+        for row, cam in enumerate(cam_list):
             expo.configure_exposure2(cam, 10000)
             expo.gain(cam, 4)
-            Tr.reset_trigger(nodemap[i])
+            Tr.reset_trigger(nodemap[row])
 
         # Setting up the camera for acquisition
-        for i in range(num_cameras):
-            create_window(cam_list[i], nodemap[i])
+        for row in range(num_cameras):
+            create_window(cam_list[row], nodemap[row])
 
         # Array to store the values for contrast, brightness and time exposure in us
         aux = np.array([1., 0., 10000, 4., 1., 0])
         aux2 = np.array([1., 0., 10000, 4., 1., 0])
 
         # Initiating the window for the preview's GUI
-        fenetre = Tk()
-        fenetre.geometry("1300x700")
+        window = Tk()
+        window.title('Single Plane Illumination Magnetic Micro Manipulator')
+        window.geometry("1300x700")
 
         # Defining functions to validate entries----
         def correct(inp):
-
             if inp.isdigit() or inp == '':
                 return True
             else:
                 return False
 
-        reg = fenetre.register(correct)
+        reg = window.register(correct)
 
         def correctf(inp):
-
             if inp.replace(".", "", 1).isdigit() or inp == '':
                 return True
             else:
                 return False
 
-        regf = fenetre.register(correctf)
+        regf = window.register(correctf)
 
         def correctfn(inp):
 
@@ -973,12 +872,11 @@ def main():
             else:
                 return inp.replace(".", "", 1).isdigit()
 
-        regfn = fenetre.register(correctfn)
+        regfn = window.register(correctfn)
 
-        #
-        varc = [IntVar() for cam in cam_list]
+        camera_display = [IntVar() for cam in cam_list]
 
-        for i, cam in enumerate(cam_list):
+        for row, cam in enumerate(cam_list):
 
             nodemap2 = cam.GetTLDeviceNodeMap()
 
@@ -987,60 +885,60 @@ def main():
             if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
                 features = node_device_information.GetFeatures()
                 node_feature = PySpin.CValuePtr(features[0])
-                Checkbutton(fenetre, text="cam: %s" % node_feature.ToString(), variable=varc[i]).place(x=20 + i * 100,
-                                                                                                       y=520)
+                Checkbutton(window, text="cam: %s" % node_feature.ToString(), variable=camera_display[row]).place(x=20 + row * 100,
+                                                                                                                  y=520)
 
         dim = np.shape(acquire_images(cam_list[0], nodemap_tldevice[0]))
 
-        image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[i], nodemap_tldevice[i]), None, fx=0.25, fy=0.25,
-                                              interpolation=cv2.INTER_CUBIC) ** (aux[4]) + aux[1], 0, 255) for i in
+        image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[row], nodemap_tldevice[row]), None, fx=0.25, fy=0.25,
+                                              interpolation=cv2.INTER_CUBIC) ** (aux[4]) + aux[1], 0, 255) for row in
                   range(num_cameras)]
 
         image7 = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1], 3), dtype=np.int16)
-        for i in range(num_cameras):
-            if varc[i].get() == 1:
-                image7[:, :, i] = image5[i]
+        for row in range(num_cameras):
+            if camera_display[row].get() == 1:
+                image7[:, :, row] = image5[row]
 
-        image6 = [ImageTk.PhotoImage(Image.fromarray(image7, mode="RGB"), master=fenetre)]
+        image6 = [ImageTk.PhotoImage(Image.fromarray(image7, mode="RGB"), master=window)]
 
         # Creating the canvas for the image
-        canvas = Canvas(fenetre, width=image5[0].shape[1] + 25, height=image5[0].shape[0] + 25)
+        canvas = Canvas(window, width=image5[0].shape[1] + 25, height=image5[0].shape[0] + 25)
         canvas.place(x=-18, y=-18)
 
         # Creating the values stored in the different entries
-        value1 = StringVar()
-        value1.set(1)
+        cam1_contrast = StringVar()
+        cam1_contrast.set(1)
 
-        value2 = StringVar()
-        value2.set(0)
+        cam1_brightness = StringVar()
+        cam1_brightness.set(0)
 
-        value3 = StringVar()
-        value3.set(10000)
+        cam1_exposure = StringVar()
+        cam1_exposure.set(10000)
 
-        value4 = StringVar()
-        value4.set(4)
+        cam1_gain = StringVar()
+        cam1_gain.set(4)
 
-        value6 = StringVar()
-        value6.set(1)
+        cam1_gamma = StringVar()
+        cam1_gamma.set(1)
 
-        value21 = StringVar()
-        value21.set(1)
+        cam2_contrast = StringVar()
+        cam2_contrast.set(1)
 
-        value22 = StringVar()
-        value22.set(0)
+        cam2_brightness = StringVar()
+        cam2_brightness.set(0)
 
-        value23 = StringVar()
-        value23.set(10000)
+        cam2_exposure = StringVar()
+        cam2_exposure.set(10000)
 
-        value24 = StringVar()
-        value24.set(4)
+        cam2_gain = StringVar()
+        cam2_gain.set(4)
 
-        value26 = StringVar()
-        value26.set(1)
+        cam2_gamma = StringVar()
+        cam2_gamma.set(1)
 
         # labels, entries and button for the different parameters of the first camera
 
-        for i, cam in enumerate(cam_list):
+        for row, cam in enumerate(cam_list):
 
             nodemap2 = cam.GetTLDeviceNodeMap()
 
@@ -1049,394 +947,402 @@ def main():
             if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
                 features = node_device_information.GetFeatures()
                 node_feature = PySpin.CValuePtr(features[0])
-                label5 = Label(fenetre, text="Parameters for camera %s" % node_feature.ToString(), bg="cyan")
-                label5.place(x=800, y=i * 100)
+                save_section_label = Label(window, text="Parameters for camera %s" % node_feature.ToString(), bg="cyan")
+                save_section_label.place(x=800, y=row * 100)
 
-        label6 = Label(fenetre, text="Gamma", bg="yellow")
-        label6.place(x=700, y=30)
+        cam1_gamma_label = Label(window, text="Gamma", bg="yellow")
+        cam1_gamma_label.place(x=700, y=30)
 
-        entree6 = Entry(fenetre, textvariable=value6, width=10, validate="key", validatecommand=(regf, '%P'))
-        entree6.place(x=630, y=30)
+        cam1_gamma_field = Entry(window, textvariable=cam1_gamma, width=10, validate="key", validatecommand=(regf, '%P'))
+        cam1_gamma_field.place(x=630, y=30)
 
-        label1 = Label(fenetre, text="Contrast", bg="yellow")
-        label1.place(x=700, y=60)
+        cam1_contrast_label = Label(window, text="Contrast", bg="yellow")
+        cam1_contrast_label.place(x=700, y=60)
 
-        entree1 = Entry(fenetre, textvariable=value1, width=10, validate="key", validatecommand=(regf, '%P'))
-        entree1.place(x=630, y=60)
+        cam1_contrast_field = Entry(window, textvariable=cam1_contrast, width=10, validate="key", validatecommand=(regf, '%P'))
+        cam1_contrast_field.place(x=630, y=60)
 
-        label2 = Label(fenetre, text="Brightness", bg="yellow")
-        label2.place(x=835, y=30)
+        cam1_brightness_label = Label(window, text="Brightness", bg="yellow")
+        cam1_brightness_label.place(x=835, y=30)
 
-        entree2 = Entry(fenetre, textvariable=value2, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entree2.place(x=765, y=30)
+        cam1_brightness_field = Entry(window, textvariable=cam1_brightness, width=10, validate="key", validatecommand=(regfn, '%P'))
+        cam1_brightness_field.place(x=765, y=30)
 
-        label3 = Label(fenetre, text="Exposure time in us (between 7 and 29999998)", bg="yellow")
-        label3.place(x=835, y=60)
+        cam1_exposure_label = Label(window, text="Exposure time in us", bg="yellow")
+        cam1_exposure_label.place(x=835, y=60)
 
-        entree3 = Entry(fenetre, textvariable=value3, width=10, validate="key", validatecommand=(reg, '%P'))
-        entree3.place(x=765, y=60)
+        cam1_exposure_field = Entry(window, textvariable=cam1_exposure, width=10, validate="key", validatecommand=(reg, '%P'))
+        cam1_exposure_field.place(x=765, y=60)
 
-        label4 = Label(fenetre, text="Gain in Db (below 47.994294)", bg="yellow")
-        label4.place(x=985, y=30)
+        cam1_gain_label = Label(window, text="Gain in Db", bg="yellow")
+        cam1_gain_label.place(x=985, y=30)
 
-        entree4 = Entry(fenetre, textvariable=value4, width=10, validate="key", validatecommand=(regf, '%P'))
-        entree4.place(x=915, y=30)
+        cam1_gain_field = Entry(window, textvariable=cam1_gain, width=10, validate="key", validatecommand=(regf, '%P'))
+        cam1_gain_field.place(x=915, y=30)
 
-        bouton1 = Button(fenetre, text="Change settings", command=recupere)
-        bouton1.place(x=1100, y=60)
+        cam1_change_params_button = Button(window, text="Change settings", command=change_camera1_params())
+        cam1_change_params_button.place(x=1100, y=60)
 
         # labels, entries and button for the different parameters of the second camera
 
-        # label25 = Label(fenetre, text="Parameters", bg="cyan")
-        # label25.place(x=855, y=110)
+        cam2_gamma_label = Label(window, text="Gamma", bg="yellow")
+        cam2_gamma_label.place(x=700, y=130)
 
-        label26 = Label(fenetre, text="Gamma", bg="yellow")
-        label26.place(x=700, y=130)
+        cam2_gamma_field = Entry(window, textvariable=cam2_gamma, width=10, validate="key", validatecommand=(regf, '%P'))
+        cam2_gamma_field.place(x=630, y=130)
 
-        entree26 = Entry(fenetre, textvariable=value26, width=10, validate="key", validatecommand=(regf, '%P'))
-        entree26.place(x=630, y=130)
+        cam2_contrast_label = Label(window, text="Contrast", bg="yellow")
+        cam2_contrast_label.place(x=700, y=160)
 
-        label21 = Label(fenetre, text="Contrast", bg="yellow")
-        label21.place(x=700, y=160)
+        cam2_contrast_field = Entry(window, textvariable=cam2_contrast, width=10, validate="key", validatecommand=(regf, '%P'))
+        cam2_contrast_field.place(x=630, y=160)
 
-        entree21 = Entry(fenetre, textvariable=value21, width=10, validate="key", validatecommand=(regf, '%P'))
-        entree21.place(x=630, y=160)
+        cam2_brightness_label = Label(window, text="Brightness", bg="yellow")
+        cam2_brightness_label.place(x=835, y=130)
 
-        label22 = Label(fenetre, text="Brightness", bg="yellow")
-        label22.place(x=835, y=130)
+        cam2_brightness_field = Entry(window, textvariable=cam2_brightness, width=10, validate="key", validatecommand=(regfn, '%P'))
+        cam2_brightness_field.place(x=765, y=130)
 
-        entree22 = Entry(fenetre, textvariable=value22, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entree22.place(x=765, y=130)
+        cam2_exposure_label = Label(window, text="Exposure time in us", bg="yellow")
+        cam2_exposure_label.place(x=835, y=160)
 
-        label23 = Label(fenetre, text="Exposure time in us (between 7 and 29999998)", bg="yellow")
-        label23.place(x=835, y=160)
+        cam2_exposure_field = Entry(window, textvariable=cam2_exposure, width=10, validate="key", validatecommand=(reg, '%P'))
+        cam2_exposure_field.place(x=765, y=160)
 
-        entree23 = Entry(fenetre, textvariable=value23, width=10, validate="key", validatecommand=(reg, '%P'))
-        entree23.place(x=765, y=160)
+        cam2_gain_label = Label(window, text="Gain in Db", bg="yellow")
+        cam2_gain_label.place(x=985, y=130)
 
-        label24 = Label(fenetre, text="Gain in Db (below 47.994294)", bg="yellow")
-        label24.place(x=985, y=130)
+        cam2_gain_field = Entry(window, textvariable=cam2_gain, width=10, validate="key", validatecommand=(regf, '%P'))
+        cam2_gain_field.place(x=915, y=130)
 
-        entree24 = Entry(fenetre, textvariable=value24, width=10, validate="key", validatecommand=(regf, '%P'))
-        entree24.place(x=915, y=130)
-
-        bouton21 = Button(fenetre, text="Change settings", command=recupere2)
-        bouton21.place(x=1100, y=160)
+        cam2_change_params_button = Button(window, text="Change settings", command=change_camera2_params())
+        cam2_change_params_button.place(x=1100, y=160)
 
         # Label, entry and button to save the image
-        label5 = Label(fenetre, text="Save a frame or a video", bg="cyan")
-        label5.place(x=660, y=210)
+        save_section_label = Label(window, text="Save a frame or a video", bg="cyan")
+        save_section_label.place(x=660, y=210)
 
-        variablecoul = IntVar()
-        variablecoul.set(1)
+        save_colour_setting = IntVar()
+        save_colour_setting.set(1)
 
-        boutongray = Radiobutton(fenetre, text='Grayscale', variable=variablecoul, value=0)
-        boutongray.place(x=655, y=235)
+        save_bw_radiobutton = Radiobutton(window, text='Grayscale', variable=save_colour_setting, value=0)
+        save_bw_radiobutton.place(x=655, y=235)
 
-        boutoncoul = Radiobutton(fenetre, text='Color', variable=variablecoul, value=1)
-        boutoncoul.place(x=735, y=235)
+        save_colour_radiobutton = Radiobutton(window, text='Color', variable=save_colour_setting, value=1)
+        save_colour_radiobutton.place(x=735, y=235)
 
-        bouton2 = Button(fenetre, text="Save the current image", command=save)
-        bouton2.place(x=660, y=260)
+        save_image_button = Button(window, text="Save the current image", command=save)
+        save_image_button.place(x=660, y=260)
 
         # Label, entry and button to record a video
 
-        bouton7 = Button(fenetre, text="Start recording", command=start_video)
-        bouton7.place(x=632, y=290)
-        bouton8 = Button(fenetre, text="Stop recording", command=stop_vid, state=DISABLED)
-        bouton8.place(x=722, y=290)
+        start_record_button = Button(window, text="Start recording", command=start_video)
+        start_record_button.place(x=632, y=290)
+        stop_record_button = Button(window, text="Stop recording", command=stop_vid, state='disabled')
+        stop_record_button.place(x=722, y=290)
 
         # Freeze and Resume button
 
-        bouton3 = Button(fenetre, text="Freeze", command=freeze)
-        bouton3.place(x=250, y=520)
+        freeze_video_button = Button(window, text="Freeze", command=freeze)
+        freeze_video_button.place(x=250, y=520)
 
-        bouton4 = Button(fenetre, text="Resume", command=resume)
-        bouton4.place(x=300, y=520)
+        resume_video_button = Button(window, text="Resume", command=resume)
+        resume_video_button.place(x=300, y=520)
 
         # Magnet control
 
-        label7 = Label(fenetre, text="Magnets control", bg="Cyan")
-        label7.place(x=950, y=210)
+        force_direction_label = Label(window, text="Magnets control", bg="Cyan")
+        force_direction_label.place(x=950, y=210)
 
         # Select a direction for pulling with the magnet
         direction = IntVar()
         direction.set(1)
 
-        label7 = Label(fenetre, text="Pick a direction:", bg="yellow")
-        label7.place(x=870, y=240)
-        boutonN = Radiobutton(fenetre, text="North (3)", variable=direction, value=3)
-        boutonN.place(x=845, y=270)
-        boutonS = Radiobutton(fenetre, text="South (2)", variable=direction, value=2)
-        boutonS.place(x=920, y=270)
-        boutonE = Radiobutton(fenetre, text="East (4)", variable=direction, value=4)
-        boutonE.place(x=845, y=300)
-        boutonW = Radiobutton(fenetre, text="West (1)", variable=direction, value=1)
-        boutonW.place(x=920, y=300)
+        force_direction_label = Label(window, text="force direction:", bg="yellow")
+        force_direction_label.place(x=870, y=240)
+        north_button = Radiobutton(window, text="North (3)", variable=direction, value=3)
+        north_button.place(x=845, y=270)
+        south_button = Radiobutton(window, text="South (2)", variable=direction, value=2)
+        south_button.place(x=920, y=270)
+        east_button = Radiobutton(window, text="East (4)", variable=direction, value=4)
+        east_button.place(x=845, y=300)
+        west_button = Radiobutton(window, text="West (1)", variable=direction, value=1)
+        west_button.place(x=920, y=300)
 
         # Select an amplitude
 
         amplitude = IntVar()
         amplitude.set(1)
-        label8 = Label(fenetre, text="Pick an amplitude:", bg="yellow")
-        label8.place(x=1065, y=240)
-        boutonA1 = Radiobutton(fenetre, text="0.5 A (1)", variable=amplitude, value=1)
-        boutonA1.place(x=1020, y=270)
-        boutonA2 = Radiobutton(fenetre, text="1 A (2)", variable=amplitude, value=2)
-        boutonA2.place(x=1090, y=270)
-        boutonA3 = Radiobutton(fenetre, text="1.5 A (3)", variable=amplitude, value=3)
-        boutonA3.place(x=1160, y=270)
-        boutonA4 = Radiobutton(fenetre, text="2 A (4)", variable=amplitude, value=4)
-        boutonA4.place(x=1020, y=300)
-        boutonA5 = Radiobutton(fenetre, text="2.5 A (5)", variable=amplitude, value=5)
-        boutonA5.place(x=1090, y=300)
+        current_amplitude_label = Label(window, text="current amplitude:", bg="yellow")
+        current_amplitude_label.place(x=1065, y=240)
+        run_expt_from_file_button = Radiobutton(window, text="0.5 A (1)", variable=amplitude, value=1)
+        run_expt_from_file_button.place(x=1020, y=270)
+        run_expt_from_input_button = Radiobutton(window, text="1 A (2)", variable=amplitude, value=2)
+        run_expt_from_input_button.place(x=1090, y=270)
+        amp_button_3 = Radiobutton(window, text="1.5 A (3)", variable=amplitude, value=3)
+        amp_button_3.place(x=1160, y=270)
+        amp_button_4 = Radiobutton(window, text="2 A (4)", variable=amplitude, value=4)
+        amp_button_4.place(x=1020, y=300)
+        amp_button_5 = Radiobutton(window, text="2.5 A (5)", variable=amplitude, value=5)
+        amp_button_5.place(x=1090, y=300)
 
-        valued = StringVar()
-        valued.set(1)
+        force_duration = StringVar()
+        force_duration.set(1)
 
-        duration = Entry(fenetre, textvariable=valued, width=10, validate="key", validatecommand=(regf, '%P'))
+        duration = Entry(window, textvariable=force_duration, width=10, validate="key", validatecommand=(regf, '%P'))
         duration.place(x=1075, y=330)
-        boutonM1 = Button(fenetre, text="Run magnet for following duration (in s):", command=start_magnet)
-        boutonM1.place(x=845, y=327)
-        boutonM2 = Button(fenetre, text="Pulse", command=start_magnet2)
-        boutonM2.place(x=1190, y=327)
+        mag_button = Button(window, text="Run magnet for following duration (in s):", command=start_magnet)
+        mag_button.place(x=845, y=327)
+        mag_pulse_button = Button(window, text="Pulse", command=pulse_magnet)
+        mag_pulse_button.place(x=1190, y=327)
 
         # Temperature
-        label5 = Label(fenetre, text="Temperature control", bg="cyan")
-        label5.place(x=670, y=335)
+        save_section_label = Label(window, text="Temperature control", bg="cyan")
+        save_section_label.place(x=670, y=335)
 
-        valueT = StringVar()
-        valueT.set(20)
+        temperature_input = StringVar()
+        temperature_input.set(20)
 
-        EntreeT = Entry(fenetre, textvariable=valueT, width=10, validate="key", validatecommand=(regfn, '%P'))
-        EntreeT.place(x=720, y=360)
+        temperature_entry = Entry(window, textvariable=temperature_input, width=10, validate="key",
+                                  validatecommand=(regfn, '%P'))
+        temperature_entry.place(x=720, y=360)
 
-        EntreeT.config(validate="key", validatecommand=(reg, '%P'))
-        boutonT1 = Button(fenetre, text="Set temp", command=set_temp)
-        boutonT1.place(x=630, y=357)
+        temperature_entry.config(validate="key", validatecommand=(reg, '%P'))
+        start_temperature_button = Button(window, text="Set temp", command=set_temp)
+        start_temperature_button.place(x=630, y=357)
 
-        boutonT2 = Button(fenetre, text="Stop control", command=halt_temp)
-        boutonT2.place(x=630, y=385)
+        stop_temperature_button = Button(window, text="Stop control", command=halt_temp)
+        stop_temperature_button.place(x=630, y=385)
 
-        labelT = Label(fenetre, text="Bath temp: n/a", bg='white')
-        labelT.place(x=720, y=385)
+        temperature_readout = Label(window, text="Bath temp: n/a", bg='white')
+        temperature_readout.place(x=720, y=385)
 
         # Volume sweep section
 
-        labelSV = Label(fenetre, text="Take a volume", bg="cyan")
-        labelSV.place(x=670, y=430)
+        vol_capture_label = Label(window, text="volume capture", bg="cyan")
+        vol_capture_label.place(x=670, y=430)
 
-        valueSV1 = StringVar()
-        valueSV1.set(6.3)
+        upper_z_input = StringVar()
+        upper_z_input.set(6.3)
 
-        valueSV2 = StringVar()
-        valueSV2.set(6.1)
+        lower_z_input = StringVar()
+        lower_z_input.set(6.1)
 
-        valueSV3 = StringVar()
-        valueSV3.set(-4486.982)
+        mirror_slope_input = StringVar()
+        mirror_slope_input.set(-4486.982)
 
-        valueSV4 = StringVar()
-        valueSV4.set('Volume')
+        filename_imput = StringVar()
+        filename_imput.set('volume')
 
-        valueSV5 = IntVar()
-        valueSV5.set(1)
+        save_volume_input = IntVar()
+        save_volume_input.set(1)
 
-        valueSV6 = IntVar()
-        valueSV6.set(25000)
+        frame_period_input = IntVar()
+        frame_period_input.set(25000)
 
-        valueSV7 = StringVar()
-        valueSV7.set(0.02)
+        z_step_input = StringVar()
+        z_step_input.set(0.02)
 
         # This value is shared with another section
-        VarTR1 = IntVar()
-        VarTR1.set(10000)
+        exposure_input = IntVar()
+        exposure_input.set(10000)
 
-        label1 = Label(fenetre, text="Upper limit", bg="yellow")
-        label1.place(x=730, y=455)
+        trigger_exposure_label = Label(window, text="Upper limit", bg="yellow")
+        trigger_exposure_label.place(x=730, y=455)
 
-        entreeSV1 = Entry(fenetre, textvariable=valueSV1, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV1.place(x=660, y=455)
+        upper_z_field = Entry(window, textvariable=upper_z_input, width=10, validate="key",
+                              validatecommand=(regfn, '%P'))
+        upper_z_field.place(x=660, y=455)
 
-        label1 = Label(fenetre, text="Lower limit", bg="yellow")
-        label1.place(x=730, y=485)
+        trigger_exposure_label = Label(window, text="Lower limit", bg="yellow")
+        trigger_exposure_label.place(x=730, y=485)
 
-        entreeSV2 = Entry(fenetre, textvariable=valueSV2, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV2.place(x=660, y=485)
+        lower_z_field = Entry(window, textvariable=lower_z_input, width=10, validate="key",
+                              validatecommand=(regfn, '%P'))
+        lower_z_field.place(x=660, y=485)
 
-        label1 = Label(fenetre, text="Slope", bg="yellow")
-        label1.place(x=730, y=515)
+        trigger_exposure_label = Label(window, text="Slope", bg="yellow")
+        trigger_exposure_label.place(x=730, y=515)
 
-        entreeSV3 = Entry(fenetre, textvariable=valueSV3, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV3.place(x=660, y=515)
+        mirror_slope_field = Entry(window, textvariable=mirror_slope_input, width=10, validate="key",
+                                   validatecommand=(regfn, '%P'))
+        mirror_slope_field.place(x=660, y=515)
 
-        label1 = Label(fenetre, text="Trigger exposure time (us)", bg="yellow")
-        label1.place(x=730, y=545)
+        trigger_exposure_label = Label(window, text="Trigger exposure time (us)", bg="yellow")
+        trigger_exposure_label.place(x=730, y=545)
 
-        entreeSV4 = Entry(fenetre, textvariable=VarTR1, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV4.place(x=660, y=545)
+        exposure_field = Entry(window, textvariable=exposure_input, width=10, validate="key",
+                               validatecommand=(regfn, '%P'))
+        exposure_field.place(x=660, y=545)
 
-        label1 = Label(fenetre, text="Time btw frames (us)", bg="yellow")
-        label1.place(x=730, y=575)
+        trigger_exposure_label = Label(window, text="frame period (us)", bg="yellow")
+        trigger_exposure_label.place(x=730, y=575)
 
-        entreeSV5 = Entry(fenetre, textvariable=valueSV6, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV5.place(x=660, y=575)
+        frame_period_field = Entry(window, textvariable=frame_period_input, width=10, validate="key",
+                                   validatecommand=(regfn, '%P'))
+        frame_period_field.place(x=660, y=575)
 
-        label1 = Label(fenetre, text="Distance btw frames (mm)", bg="yellow")
-        label1.place(x=730, y=605)
+        trigger_exposure_label = Label(window, text="Distance btw frames (mm)", bg="yellow")
+        trigger_exposure_label.place(x=730, y=605)
 
-        entreeSV6 = Entry(fenetre, textvariable=valueSV7, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeSV6.place(x=660, y=605)
+        z_step_field = Entry(window, textvariable=z_step_input, width=10, validate="key", validatecommand=(regfn, '%P'))
+        z_step_field.place(x=660, y=605)
 
-        buttonSV2 = Checkbutton(fenetre, text="Save volume as", variable=valueSV5, command=volumestate)
-        buttonSV2.place(x=650, y=635)
+        save_vol_button = Checkbutton(window, text="Save volume as", variable=save_volume_input, command=volumestate)
+        save_vol_button.place(x=650, y=635)
 
-        entreeSV4 = Entry(fenetre, textvariable=valueSV4, width=10, validate="key", validatecommand=(regfn, '%P'),
-                          state=NORMAL)
-        entreeSV4.place(x=760, y=635)
+        exposure_field = Entry(window, textvariable=filename_imput, width=10, validate="key",
+                               validatecommand=(regfn, '%P'),
+                               state='normal')
+        exposure_field.place(x=760, y=635)
 
-        boutonSV1 = Button(fenetre, text="Sweep volume", command=sweep)
-        boutonSV1.place(x=660, y=660)
+        sweep_vol_button = Button(window, text="Sweep volume", command=sweep)
+        sweep_vol_button.place(x=660, y=660)
 
-        labelSV2 = [Label(fenetre, text='SWEEPING VOLUME', fg='red')]
+        sweeping_indicator = [Label(window, text='SWEEPING VOLUME', fg='red')]
 
-        # Lasers control
+        # Laser control
 
-        valueL1 = StringVar()
-        valueL1.set(20)
+        blue_power_input = StringVar()
+        blue_power_input.set(20)
 
-        valueL2 = StringVar()
-        valueL2.set(20)
+        yellow_power_input = StringVar()
+        yellow_power_input.set(20)
 
-        valueL3 = IntVar()
-        valueL3.set(0)
+        blue_state_input = IntVar()
+        blue_state_input.set(0)
 
-        valueL4 = IntVar()
-        valueL4.set(0)
+        yellow_state_input = IntVar()
+        yellow_state_input.set(0)
 
-        labelL1 = Label(fenetre, text="Lasers control", bg="Cyan")
-        labelL1.place(x=960, y=380)
+        label_l1 = Label(window, text="Laser control", bg="Cyan")
+        label_l1.place(x=960, y=380)
 
-        labelL2 = Label(fenetre, text="488 Laser:", bg="yellow")
-        labelL2.place(x=830, y=415)
+        label_l2 = Label(window, text="488 Laser:", bg="yellow")
+        label_l2.place(x=830, y=415)
 
-        boutonL1 = Radiobutton(fenetre, text="ON", variable=valueL3, value=1)
-        boutonL1.place(x=895, y=412)
+        blue_on_radiobutton = Radiobutton(window, text="ON", variable=blue_state_input, value=1)
+        blue_on_radiobutton.place(x=895, y=412)
 
-        boutonL2 = Radiobutton(fenetre, text="OFF", variable=valueL3, value=0)
-        boutonL2.place(x=940, y=412)
+        blue_off_radiobutton = Radiobutton(window, text="OFF", variable=blue_state_input, value=0)
+        blue_off_radiobutton.place(x=940, y=412)
 
-        labelL3 = Label(fenetre, text="Power (in mW):")
-        labelL3.place(x=1000, y=412)
+        label_l3 = Label(window, text="Power (in mW):")
+        label_l3.place(x=1000, y=412)
 
-        entreeL1 = Entry(fenetre, textvariable=valueL1, width=10, validate="key", validatecommand=(reg, '%P'))
-        entreeL1.place(x=1090, y=415)
+        yellow_power_field = Entry(window, textvariable=yellow_power_input, width=10, validate="key",
+                                   validatecommand=(reg, '%P'))
+        yellow_power_field.place(x=1090, y=415)
 
-        boutonL1 = Button(fenetre, text="Update", command=laser)
-        boutonL1.place(x=1170, y=428)
+        blue_update_button = Button(window, text="Update", command=laser)
+        blue_update_button.place(x=1170, y=428)
 
-        labelL3 = Label(fenetre, text="561 Laser:", bg="yellow")
-        labelL3.place(x=830, y=450)
+        label_l3 = Label(window, text="561 Laser:", bg="yellow")
+        label_l3.place(x=830, y=450)
 
-        boutonL4 = Radiobutton(fenetre, text="ON", variable=valueL4, value=1)
-        boutonL4.place(x=895, y=447)
+        yellow_on_radiobutton = Radiobutton(window, text="ON", variable=yellow_state_input, value=1)
+        yellow_on_radiobutton.place(x=895, y=447)
 
-        boutonL5 = Radiobutton(fenetre, text="OFF", variable=valueL4, value=0)
-        boutonL5.place(x=940, y=447)
+        yellow_off_radiobutton = Radiobutton(window, text="OFF", variable=yellow_state_input, value=0)
+        yellow_off_radiobutton.place(x=940, y=447)
 
-        boutonL6 = Label(fenetre, text="Power (in mW):")
-        boutonL6.place(x=1000, y=447)
+        label_l4 = Label(window, text="Power (in mW):")
+        label_l4.place(x=1000, y=447)
 
-        entreeL2 = Entry(fenetre, textvariable=valueL2, width=10, validate="key", validatecommand=(reg, '%P'))
-        entreeL2.place(x=1090, y=450)
+        yellow_power_input = Entry(window, textvariable=yellow_power_input, width=10, validate="key",
+                                   validatecommand=(reg, '%P'))
+        yellow_power_input.place(x=1090, y=450)
 
         # Stage
 
-        labelS1 = Label(fenetre, text='Stage control', bg='Cyan')
-        labelS1.place(x=960, y=490)
+        stage_control_block_label = Label(window, text='stage control', bg='Cyan')
+        stage_control_block_label.place(x=960, y=490)
 
-        valueS = StringVar()
-        valueS.set(5.45)
+        stage_pos_input = StringVar()
+        stage_pos_input.set(5.45)
 
-        valueS2 = IntVar()
-        valueS2.set(0)
+        mirror_track_input = IntVar()
+        mirror_track_input.set(0)
 
-        boutonS1 = Button(fenetre, text="Set stage to:", command=stage, state=DISABLED)
-        boutonS1.place(x=890, y=520)
+        stage_update_button = Button(window, text="Set stage to:", command=stage, state='disabled')
+        stage_update_button.place(x=890, y=520)
 
-        entreeS1 = Entry(fenetre, textvariable=valueS, width=10, validate="key", validatecommand=(regfn, '%P'))
-        entreeS1.place(x=970, y=523)
+        stage_position_input = Entry(window, textvariable=stage_pos_input, width=10, validate="key",
+                                     validatecommand=(regfn, '%P'))
+        stage_position_input.place(x=970, y=523)
 
-        boutonS2 = Button(fenetre, text='Engage', command=engage)
-        boutonS2.place(x=890, y=550)
+        stage_engage_button = Button(window, text='Engage', command=engage)
+        stage_engage_button.place(x=890, y=550)
 
-        boutonS3 = Button(fenetre, text='Disengage', command=disengage, state=DISABLED)
-        boutonS3.place(x=940, y=550)
+        stage_disengage_button = Button(window, text='Disengage', command=disengage, state='disabled')
+        stage_disengage_button.place(x=940, y=550)
 
-        truceee = Button(fenetre, text='Raise', command=raisestage)
-        truceee.place(x=1020, y=550)
+        rename_stage_button = Button(window, text='Raise', command=raisestage)
+        rename_stage_button.place(x=1020, y=550)
 
-        boutonS4 = Button(fenetre, text='Error:', command=stagerr)
-        boutonS4.place(x=1090, y=550)
+        stage_error_button = Button(window, text='Error:', command=stagerr)
+        stage_error_button.place(x=1090, y=550)
 
-        labelS2 = Label(fenetre, text='      ', bg='White')
-        labelS2.place(x=1133, y=553)
+        stage_error_label = Label(window, text='      ', bg='White')
+        stage_error_label.place(x=1133, y=553)
 
-        buttonS5 = Checkbutton(fenetre, text='mirror tracking', variable=valueS2, command=mirror)
-        buttonS5.place(x=1050, y=520)
+        mirror_track_checkbox = Checkbutton(window, text='mirror tracking', variable=mirror_track_input, command=mirror)
+        mirror_track_checkbox.place(x=1050, y=520)
 
         # Trigger
-        labelTR1 = Label(fenetre, text='Trigger control', bg='cyan').place(x=960, y=600)
-        buttonTR = Button(fenetre, text="Triggering mode", command=set_trigger)
-        buttonTR.place(x=930, y=630)
-        buttonTR2 = Button(fenetre, text="Trigger", command=trigger, state='disabled')
-        buttonTR2.place(x=880, y=630)
-        buttonTR3 = Button(fenetre, text="Continuous mode", command=set_continuous, state='disabled')
-        buttonTR3.place(x=1030, y=630)
-        EntryTR1 = Entry(fenetre, textvariable=VarTR1, width=10)
-        EntryTR1.place(x=940, y=660)
-        label1 = Label(fenetre, text="Trigger exposure time (us)", bg="yellow")
-        label1.place(x=1010, y=660)
+        trigger_block_label = Label(window, text='Trigger control', bg='cyan')
+        trigger_block_label.place(x=960, y=600)
+        trigger_mode_button = Button(window, text="Triggering mode", command=set_trigger)
+        trigger_mode_button.place(x=930, y=630)
+        single_trigger_button = Button(window, text="Trigger", command=trigger, state='disabled')
+        single_trigger_button.place(x=880, y=630)
+        software_trigger_button = Button(window, text="Software Trigger", command=set_continuous, state='disabled')
+        software_trigger_button.place(x=1030, y=630)
+        trigger_exposure_field = Entry(window, textvariable=exposure_input, width=10)
+        trigger_exposure_field.place(x=940, y=660)
+        trigger_exposure_label = Label(window, text="Trigger exposure time (us)", bg="yellow")
+        trigger_exposure_label.place(x=1010, y=660)
 
         # Automated experiment part
 
-        boutonA1 = Button(fenetre, text="Run automated experiment from file", command=automated1)
-        boutonA1.place(x=40, y=590)
+        run_expt_from_file_button = Button(window, text="Run automated experiment from file", command=automated1)
+        run_expt_from_file_button.place(x=40, y=590)
 
-        boutonA2 = Button(fenetre, text="Run automated experiment with parameters below", command=automated2)
-        boutonA2.place(x=300, y=590)
+        run_expt_from_input_button = Button(window, text="Run automated experiment with parameters below",
+                                            command=automated2)
+        run_expt_from_input_button.place(x=300, y=590)
 
-        labelA2 = Label(fenetre, text="Automated Experiment", bg="Cyan")
-        labelA2.place(x=20, y=560)
+        automated_expt_label = Label(window, text="Automated Experiment", bg="Cyan")
+        automated_expt_label.place(x=20, y=560)
 
         # Labels and buttons for the automated experiment
-        labelA3 = Label(fenetre, text="Name", bg="yellow")
-        labelA3.place(x=20, y=620)
+        expt_name_label = Label(window, text="Name", bg="yellow")
+        expt_name_label.place(x=20, y=620)
 
-        labelA4 = Label(fenetre, text="Amplitude", bg="yellow")
-        labelA4.place(x=83, y=620)
+        expt_amplitude_label = Label(window, text="Amplitude", bg="yellow")
+        expt_amplitude_label.place(x=83, y=620)
 
-        labelA4 = Label(fenetre, text="Configuration", bg="yellow")
-        labelA4.place(x=150, y=620)
+        expt_config_label = Label(window, text="Configuration", bg="yellow")
+        expt_config_label.place(x=150, y=620)
 
-        labelA4 = Label(fenetre, text="Force on", bg="yellow")
-        labelA4.place(x=240, y=620)
+        expt_force_on_time_label = Label(window, text="Force on", bg="yellow")
+        expt_force_on_time_label.place(x=240, y=620)
 
-        labelA5 = Label(fenetre, text="Force duration", bg="yellow")
-        labelA5.place(x=300, y=620)
+        expt_force_duration_label = Label(window, text="Force duration", bg="yellow")
+        expt_force_duration_label.place(x=300, y=620)
 
-        labelA6 = Label(fenetre, text="Num frames", bg="yellow")
-        labelA6.place(x=383, y=620)
+        expt_num_frames_label = Label(window, text="Num frames", bg="yellow")
+        expt_num_frames_label.place(x=383, y=620)
 
-        labelA7 = Label(fenetre, text="Frame period", bg="yellow")
-        labelA7.place(x=457, y=620)
+        expt_frame_period_label = Label(window, text="Frame period", bg="yellow")
+        expt_frame_period_label.place(x=457, y=620)
 
-        labelA8 = Label(fenetre, text="Temperature", bg="yellow")
-        labelA8.place(x=533, y=620)
+        expt_temperature_label = Label(window, text="Temperature", bg="yellow")
+        expt_temperature_label.place(x=533, y=620)
 
         # ----------------------
 
-        frame_main = Frame(fenetre, bg=""
-                                       "gray")
+        frame_main = Frame(window, bg="gray")
         frame_main.grid(sticky='news')
         frame_main.place(x=0, y=640)
 
@@ -1463,26 +1369,26 @@ def main():
 
         # Add 9-by-5 buttons to the frame
 
-        Entree = [[Entry() for j in range(columns)] for i in range(rows)]
-        Value = [[StringVar() for j in range(columns)] for i in range(rows)]
+        heading = [[Entry() for col in range(columns)] for row in range(rows)]
+        value = [[StringVar() for col in range(columns)] for row in range(rows)]
 
-        for i in range(0, rows):
-            for j in range(0, columns):
+        for row in range(0, rows):
+            for col in range(0, columns):
                 if first == 0:
-                    Value[i][j].set('')
-                if i == 0:
-                    Entree[i][j] = Entry(frame_buttons, textvariable=Value[i][j], width=12)
+                    value[row][col].set('')
+                if row == 0:
+                    heading[row][col] = Entry(frame_buttons, textvariable=value[row][col], width=12)
                 else:
-                    Entree[i][j] = Entry(frame_buttons, textvariable=Value[i][j], width=12, validate="key",
-                                         validatecommand=(regf, '%P'))
-                Entree[i][j].grid(row=i, column=j, sticky='news')
+                    heading[row][col] = Entry(frame_buttons, textvariable=value[row][col], width=12, validate="key",
+                                              validatecommand=(regf, '%P'))
+                heading[row][col].grid(row=row, column=col, sticky='news')
 
         # Update buttons frames idle tasks to let tkinter calculate buttons sizes
         frame_buttons.update_idletasks()
 
         # Resize the canvas frame to show exactly 5-by-5 buttons and the scrollbar
-        first5columns_width = sum([Entree[0][j].winfo_width() for j in range(0, 8)])
-        first5rows_height = sum([Entree[i][0].winfo_height() for i in range(0, 4)])
+        first5columns_width = sum([heading[0][col].winfo_width() for col in range(0, 8)])
+        first5rows_height = sum([heading[row][0].winfo_height() for row in range(0, 4)])
         frame_canvas.config(width=first5columns_width + vsb.winfo_width(),
                             height=first5rows_height)
 
@@ -1493,8 +1399,6 @@ def main():
 
         # Placing the first image in the canvas
         image_on_canvas = canvas.create_image(20, 20, anchor=NW, image=image6[0])
-
-        # a = [1]
 
         image7_aux = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1]), dtype=np.int8)
 
@@ -1517,78 +1421,54 @@ def main():
                     aux2[0] * cv2.resize(aux_thing2, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (
                         aux2[4]) + aux2[1], 0, 255)
 
-                # image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0, 255)
+                # image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0,
+                # 255)
 
-                # print('thing1 min' , np.min(thing1))
-                # print(type(np.min(thing1)))
-                # print('thing1 max' , np.max(thing1))
-                # print('thing2 min' , np.min(thing2))
-                # print(type(np.min(thing2)))
-                # print('thing2 max' , np.max(thing2))
-
-                if varc[0].get() == 1:
+                if camera_display[0].get() == 1:
                     image7[:, :, 1] = np.copy(thing1)
                 else:
                     image7[:, :, 1] = np.copy(image7_aux)
 
-                if varc[1].get() == 1:
+                if camera_display[1].get() == 1:
                     image7[:, :, 0] = np.copy(thing2)
                 else:
                     image7[:, :, 0] = np.copy(image7_aux)
 
-                # image7[:, :, 0] = thing1
-                # image7[:, :, 1] = thing2
-                # print('hey')
-                # print(image7)
-                # print('hey')
                 plt.pause(delay[0])
-
-                # print('image7 min' , np.min(image7))
-                # print('image7 max' , np.max(image7))
 
                 # image72 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
 
-                image6 = [ImageTk.PhotoImage(Image.fromarray(image7
-                                                             , "RGB"), master=fenetre)]
+                image6_innerfunction_fr293 = [ImageTk.PhotoImage(Image.fromarray(image7, "RGB"), master=window)]
                 # Changing the image on the canvas
-
-                canvas.itemconfigure(image_on_canvas, image=image6[0])
+                canvas.itemconfigure(image_on_canvas, image=image6_innerfunction_fr293[0])
                 # update the temperature readout
-                labelT.configure(text="Bath temp: %s" % spim.tempm)
+                temperature_readout.configure(text="Bath temp: %s" % spim.tempm)
                 if spim.ont:
-                    labelT.configure(bg='green')
+                    temperature_readout.configure(bg='green')
                 else:
-                    labelT.configure(bg='red')
+                    temperature_readout.configure(bg='red')
 
         # function to close the window and leave the devices in the right state
-        def doSomething():
-
+        def exit_window():
             stop[0] = 0
             aux[-1] = 1
             set_continuous()
             plt.pause(0.2)
-            fenetre.destroy()
+            window.destroy()
 
-        fenetre.protocol('WM_DELETE_WINDOW', doSomething)
-
-        # canvas.itemconfigure(image_on_canvas, image=image6[0])
-
-        # T1 = threading.Thread(target=thread1)
-        # T2 = threading.Thread(target=thread2)
-        # T1.start()
-        # T2.start()
+        window.protocol('WM_DELETE_WINDOW', exit_window)
 
         thread = threading.Thread(target=main_loop)
         thread.start()
 
-        fenetre.mainloop()
+        window.mainloop()
         aux[-1] = 1
         plt.pause(1)
         thread.join()
 
         # Terminating the camera
 
-        for i, cam in enumerate(cam_list):
+        for row, cam in enumerate(cam_list):
             terminate(cam)
             cam = None
 
@@ -1617,7 +1497,7 @@ def main():
         auto[0] = 0
         first = 1
 
-    print('blackfly_preview successfully exited')
+    print('spim GUI successfully exited')
 
     return True
 
