@@ -206,7 +206,7 @@ def grab_next_image_by_trigger(nodemap, cam,sp):
 
             node_softwaretrigger_cmd.Execute()
 
-            # TODO: Blackfly and Flea3 GEV cameras need 2 second delay after software trigger
+            # TODO: Blackfly and Flea3 GEV cameras need 2 second delay_time after software trigger
 
         elif CHOSEN_TRIGGER == TriggerType.HARDWARE:
             print('hi')
