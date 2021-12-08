@@ -3,27 +3,40 @@
 # description of function: this script generates a preview of the SPIMMM cameras
 
 # libraries to import ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# os allows the code to interface with the operating system
+# PySpin is the API for the cameras
+# pyplot is a plotting package, used to show images
+# image is an image processing package, used to manipulate images
+# numpy is a numerical processing package, used to manipulate images
 
 
+import os
 from Tkinter import IntVar
 import PySpin
+import matplotlib.pyplot as plt
 import cv2
 import csv
+import matplotlib.image as mpimg
 import numpy as np
 from PySpin import CValuePtr
 import imageio
 import Queue
 import expo
 import time
+from matplotlib.animation import FuncAnimation
+import msvcrt
+import thread as th
 from tkinter import *
 import threading
 from PIL import Image, ImageTk
 import power_supply_current_controller as pscc
 import power_supply_current_controller_threaded as pscct
 from tkinter import filedialog
+import serial
+import sys
 import spimm_automated_experiment as sae
 import spimmm_obj as so
-import Trigger as trigger
+import Trigger as Tr
 
 
 class TriggerType:
@@ -35,12 +48,23 @@ class TriggerType:
 
 
 CHOSEN_TRIGGER = TriggerType.HARDWARE
-delay_time = 0.1
+delay = [0.1]
+
 global image_data
 
 
+# a deprecated variable to track a user selected camera choice
+# global num
+
+
 # register and list cameras
+# ask user for input on the camera to use
+# adjust camera settings for preview mode
+# create a function to acquire an image
+# create window showing preview image
+# update window with new preview image every 0.1s
 # if process is terminated, close down camera and finish acquisition
+
 
 # Function to register the different cameras
 def camera_registration(cam_list, num_cameras):
@@ -80,9 +104,10 @@ def framerate(cam):
 
 
 # This function gets one image from the selected camera every time it is called upon
-def acquire_images(cam, nodemap, timestamp=False):
+def acquire_images(cam, nodemap_tldevice, timestamp=False):
+    # global image_data
     try:
-        node_device_serial_number = PySpin.CStringPtr(nodemap.GetNode('DeviceSerialNumber'))
+        node_device_serial_number = PySpin.CStringPtr(nodemap_tldevice.GetNode('DeviceSerialNumber'))
         if PySpin.IsAvailable(node_device_serial_number) and PySpin.IsReadable(node_device_serial_number):
             # device_serial_number = node_device_serial_number.GetValue()
             try:
@@ -94,6 +119,8 @@ def acquire_images(cam, nodemap, timestamp=False):
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_array = image_converted.GetNDArray()
                     image_result.Release()
+                    # The numpy array that contains the image is just modified in order to get a smaller image
+                    # image_data2 = cv2.resize(image_data, None, fx=ratio, fy=ratio, interpolation=cv2.INTER_CUBIC)
                     if timestamp:
                         return image_array, image_result.GetTimeStamp()
                     else:
@@ -194,7 +221,7 @@ def camera_mode(cam, mode):
 
 
 # This function sets up the camera so that it's ready for acquisition
-def setup_camera(cam, nodemap):
+def create_window(cam, nodemap):
     try:
         framerate(cam)
         node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode('AcquisitionMode'))
@@ -227,8 +254,16 @@ def setup_camera(cam, nodemap):
     return 1
 
 
+# If you're using cv2 to display the image this function can update the frames
+def update_window(cam, nodemap_tldevice):
+    image = acquire_images(cam, nodemap_tldevice)
+    cv2.imshow('preview', image)
+    cv2.waitKey(1)
+
+
 # This function resets the settings of contrast and gain to their original values, and then ends acquisition
 def terminate(cam):
+    # plt.close()
     expo.reset_exposure(cam)
     cam.GainAuto.SetValue(PySpin.GainAuto_Continuous)
     cam.EndAcquisition()
@@ -240,73 +275,73 @@ def terminate(cam):
 def main():
     stop = [0]
     vid = [0]
-    vidname = ['spim_video']
-    rows = 50
-    columns = 8
-    experiment_params = [[]]
-    restart = False
-    first = False
-    auto = 0
-    cam1_params = np.array([1., 0., 10000, 4., 1., 0])
-    cam2_params = np.array([1., 0., 10000, 4., 1., 0])
-    spim = so.SPIMMM()
+    vidname = ['hh']
 
     def change_camera1_params():
-        cam1_params[0] = float(cam1_contrast_field.get())
-        cam1_params[1] = float(cam1_brightness_field.get())
-        cam1_params[2] = int(cam1_exposure_field.get())
-        cam1_params[3] = cam1_gain_field.get()
-        cam1_params[4] = 1. / float(cam1_gamma_field.get())
+        aux[0] = float(cam1_contrast_field.get())
+        aux[1] = float(cam1_brightness_field.get())
+        aux[2] = int(cam1_exposure_field.get())
+        aux[3] = cam1_gain_field.get()
+        aux[4] = 1. / float(cam1_gamma_field.get())
 
-        expo.configure_exposure2(cam_list[0], cam1_params[2])
-        expo.gain(cam_list[0], cam1_params[3])
+        expo.configure_exposure2(cam_list[0], aux[2])
+        expo.gain(cam_list[0], aux[3])
 
     def change_camera2_params():
-        cam2_params[0] = float(cam2_contrast_field.get())
-        cam2_params[1] = float(cam2_brightness_field.get())
-        cam2_params[2] = int(cam2_exposure_field.get())
-        cam2_params[3] = cam2_gain_field.get()
-        cam2_params[4] = 1. / float(cam1_gamma_field.get())
+        aux2[0] = float(cam2_contrast_field.get())
+        aux2[1] = float(cam2_brightness_field.get())
+        aux2[2] = int(cam2_exposure_field.get())
+        aux2[3] = cam2_gain_field.get()
+        aux2[4] = 1. / float(cam1_gamma_field.get())
 
-        expo.configure_exposure2(cam_list[1], cam2_params[2])
-        expo.gain(cam_list[1], cam2_params[3])
+        expo.configure_exposure2(cam_list[1], aux2[2])
+        expo.gain(cam_list[1], aux2[3])
 
     # This function saves the current frame once called upon
     def save():
-        image27 = np.zeros(np.shape(blank_image_rgb_16b), dtype=np.int64)
+        image27 = np.zeros(np.shape(image7), dtype=np.int64)
 
-        for row in range(np.shape(blank_image_rgb_16b)[0]):
-            for col in range(np.shape(blank_image_rgb_16b)[1]):
+        for row in range(np.shape(image7)[0]):
+            for col in range(np.shape(image7)[1]):
 
-                if blank_image_rgb_16b[row, col, 1] < 0:
-                    image27[row, col, 1] = blank_image_rgb_16b[row, col, 1] + 255
+                if image7[row, col, 1] < 0:
+                    image27[row, col, 1] = image7[row, col, 1] + 255
                 else:
-                    image27[row, col, 1] = blank_image_rgb_16b[row, col, 1]
+                    image27[row, col, 1] = image7[row, col, 1]
 
-                if blank_image_rgb_16b[row, col, 0] < 0:
-                    image27[row, col, 0] = blank_image_rgb_16b[row, col, 0] + 255
+                if image7[row, col, 0] < 0:
+                    image27[row, col, 0] = image7[row, col, 0] + 255
                 else:
-                    image27[row, col, 0] = blank_image_rgb_16b[row, col, 0]
+                    image27[row, col, 0] = image7[row, col, 0]
 
         truc = (image27[:, :, 1] + image27[:, :, 0]) / 2
 
-        image37 = np.zeros((np.shape(blank_image_rgb_16b)[0], np.shape(blank_image_rgb_16b)[1]), dtype=np.uint16)
+        image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.uint16)
 
-        for row in range(np.shape(blank_image_rgb_16b)[0]):
-            for col in range(np.shape(blank_image_rgb_16b)[1]):
+        for row in range(np.shape(image7)[0]):
+            for col in range(np.shape(image7)[1]):
 
                 if truc[row, col] > 127:
                     image37[row, col] = truc[row, col] - 255
 
                 else:
                     image37[row, col] = truc[row, col]
+        # print(truc)
+        # new_im = Image.fromarray(truc)
+
+        # new_im = new_im.convert('RGB')
+
+        # print(image27)
+
+        # print(np.min(image27))
+        # print(np.max(image27))
 
         pic_que = Queue.Queue()
         filepath = filedialog.asksaveasfilename(initialdir="/", title="Select file",
                                                 filetypes=(("tiff files", "*.tiff"), ("all files", "*.*")))
         if filepath is not None:
             if save_colour_setting.get() == 1:
-                pic_que.put(blank_image_rgb_16b)
+                pic_que.put(image7)
                 with imageio.get_writer(filepath + '.tiff') as stack:
                     while not pic_que.empty():
                         stack.append_data(pic_que.get())
@@ -320,6 +355,7 @@ def main():
             #             cv2.imwrite("%s.png" % file, truc)
             print 'Image saved as %s.tiff' % filepath
 
+    #
     # The following functions allow the user to save a video from the moment they press start recording to the moment
     # they press stop recording
 
@@ -328,10 +364,10 @@ def main():
         time_que = Queue.Queue()
 
         while vid[0] == 0:
-            pic_que.put(np.copy(blank_image_rgb_16b))
+            pic_que.put(np.copy(image7))
             pictime = time.time()
             time_que.put(pictime)
-            time.sleep(0.1)
+            plt.pause(0.1)
         time.sleep(0.5)
 
         while vid[0] == 1:
@@ -339,6 +375,12 @@ def main():
         filepath = vidname[0]
 
         if save_colour_setting.get() == 1:
+            # for i in range(np.shape(frame_array)[0]):
+            # print(frame_array[i])
+            # ret[:, :, 0] = frame_array[i][:, :, 2]
+            # ret[:, :, 1] = frame_array[i][:, :, 1]
+            # ret[:, :, 2] = frame_array[i][:, :, 0]
+            # video2.write(ret)
             with imageio.get_writer(filepath + '.tiff') as stack:
                 with open(filepath + '_time.csv', 'ab') as f:
                     writer = csv.writer(f)
@@ -354,28 +396,27 @@ def main():
                     while not pic_que.empty():
                         interm = pic_que.get()
 
-                        image27 = np.zeros(np.shape(blank_image_rgb_16b), dtype=np.uint16)
+                        image27 = np.zeros(np.shape(image7), dtype=np.uint16)
 
-                        for row in range(np.shape(blank_image_rgb_16b)[0]):
-                            for col in range(np.shape(blank_image_rgb_16b)[1]):
+                        for row in range(np.shape(image7)[0]):
+                            for col in range(np.shape(image7)[1]):
 
                                 if interm[row, col, 1] < 0:
                                     image27[row, col, 1] = interm[row, col, 1] + 255
                                 else:
                                     image27[row, col, 1] = interm[row, col, 1]
 
-                                if blank_image_rgb_16b[row, col, 0] < 0:
+                                if image7[row, col, 0] < 0:
                                     image27[row, col, 0] = interm[row, col, 0] + 255
                                 else:
                                     image27[row, col, 0] = interm[row, col, 0]
 
                         truc = (image27[:, :, 1] + image27[:, :, 0]) / 2
 
-                        image37 = np.zeros((np.shape(blank_image_rgb_16b)[0], np.shape(blank_image_rgb_16b)[1]),
-                                           dtype=np.int16)
+                        image37 = np.zeros((np.shape(image7)[0], np.shape(image7)[1]), dtype=np.int16)
 
-                        for row in range(np.shape(blank_image_rgb_16b)[0]):
-                            for col in range(np.shape(blank_image_rgb_16b)[1]):
+                        for row in range(np.shape(image7)[0]):
+                            for col in range(np.shape(image7)[1]):
 
                                 if truc[row, col] > 127:
                                     image37[row, col] = truc[row, col] - 255
@@ -385,7 +426,14 @@ def main():
 
                         stack.append_data(image37)
                         writer.writerow([time_que.get()])
+            # for i in range(np.shape(frame_array)[0]):
+            # print(frame_array[i])
+            #   ret[:, :, 0] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+            #  ret[:, :, 1] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+            # ret[:, :, 2] = (frame_array[i][:, :, 2]+frame_array[i][:, :, 1]+frame_array[i][:, :, 0])/3
+            # video2.write(ret)
 
+        # video2.release()
         vid[0] = 0
         print('Video saved as %s.tiff' % filepath)
 
@@ -408,12 +456,13 @@ def main():
     # This function, once called upon, will allow the while loop in the mainloop threaded function to stop and will
     # then close the window
     def close():
-        restart = True
-        cam1_params[-1] = 1
-        time.sleep(0.2)
+        restart[0] = 1
+        aux[-1] = 1
+        plt.pause(0.2)
         window.destroy()
 
     # These two function control a variable that can stop or resume the main loop
+
 
     def freeze():
         stop[0] = 1
@@ -444,13 +493,14 @@ def main():
         time_stop = float(duration.get()) + 1.1
         mag_button.config(state='disabled')
         mag_pulse_button.config(state='disabled')
-        time.sleep(time_stop)
+        plt.pause(time_stop)
         mag_button.config(state='normal')
         mag_pulse_button.config(state='normal')
 
     def start_magnet():
         bout = threading.Thread(target=button_control)
         bout.start()
+
         mag = threading.Thread(target=magnet)
         mag.start()
 
@@ -481,10 +531,14 @@ def main():
     # The following functions allow you to run automated experiments
 
     def automated1():
-        auto = 1
-        cam1_params[-1] = 1
+        auto[0] = 1
+        aux[-1] = 1
         time.sleep(0.2)
         window.destroy()
+
+    rows = 50
+    columns = 8
+    params2 = [[]]
 
     def automated2():
         auxi2 = columns
@@ -496,13 +550,13 @@ def main():
                     auxi2 = auxi2 + 1
             if auxi2 == columns:
                 auxi = auxi + 1
-        experiment_params[0] = [[0 for col in range(columns)] for row in range(auxi)]
+        params2[0] = [[0 for col in range(columns)] for row in range(auxi)]
         for rank in range(0, auxi):
-            experiment_params[0][rank] = [value[rank][0].get(), int(value[rank][1].get()), int(value[rank][2].get()),
-                                          float(value[rank][3].get()), float(value[rank][4].get()), int(value[rank][5].get()),
-                                          float(value[rank][6].get()), int(value[rank][7].get())]
-        auto = 2
-        cam1_params[-1] = 1
+            params2[0][rank] = [value[rank][0].get(), int(value[rank][1].get()), int(value[rank][2].get()),
+                                float(value[rank][3].get()), float(value[rank][4].get()), int(value[rank][5].get()),
+                                float(value[rank][6].get()), int(value[rank][7].get())]
+        auto[0] = 2
+        aux[-1] = 1
         time.sleep(0.2)
         window.destroy()
 
@@ -525,6 +579,7 @@ def main():
 
     def sweep():
         print('Starting sweep')
+
         spim.dlo = float(lower_z_input.get())
         spim.dup = float(upper_z_input.get())
         spim.slp = float(mirror_slope_input.get())
@@ -573,13 +628,13 @@ def main():
         time_pile1 = []
         time_pile2 = []
         print(pos_que.qsize() - 1)
-        image72 = np.zeros((full_image_shape[0], full_image_shape[1], 3), dtype=np.uint16)
-        image7_aux_inner = np.zeros((full_image_shape[0], full_image_shape[1]), dtype=np.uint16)
+        image72 = np.zeros((dim[0], dim[1], 3), dtype=np.uint16)
+        image7_aux_inner = np.zeros((dim[0], dim[1]), dtype=np.uint16)
         for item in range(pos_que.qsize()):
-            aux_thing1 = acquire_images(cam_list[0], nodemap[0], False)
-            aux_thing2 = acquire_images(cam_list[1], nodemap[1], False)
-            thing1 = np.clip(cam1_params[0] * aux_thing1[0] ** (cam1_params[4]) + cam1_params[1], 0, 255)
-            thing2 = np.clip(cam2_params[0] * aux_thing2[0] ** (cam2_params[4]) + cam2_params[1], 0, 255)
+            aux_thing1 = acquire_images(cam_list[0], nodemap_tldevice[0], False)
+            aux_thing2 = acquire_images(cam_list[1], nodemap_tldevice[1], False)
+            thing1 = np.clip(aux[0] * aux_thing1[0] ** (aux[4]) + aux[1], 0, 255)
+            thing2 = np.clip(aux2[0] * aux_thing2[0] ** (aux2[4]) + aux2[1], 0, 255)
 
             if camera_display[0].get() == 1:
                 image72[:, :, 1] = np.copy(thing1)
@@ -603,8 +658,7 @@ def main():
                     position = pos_que.get()
                     capture_time_1 = time_pile1.pop()
                     capture_time_2 = time_pile2.pop()
-                    writer.writerow(
-                        [str(capture_time_1) + ';' + str(capture_time_2) + ';' + position[:5] + ';' + position[6:-1]])
+                    writer.writerow([str(capture_time_1) + ';' + str(capture_time_2) + ';' + position[:5] + ';' + position[6:-1]])
                     image = pic_pile.pop()
                     stack.append_data(image)
 
@@ -687,7 +741,7 @@ def main():
     def engage():
         stage_engage_button.config(state='disabled')
         spim.rbt()
-        time.sleep(3)
+        plt.pause(3)
         stage_disengage_button.config(state='normal')
         spim.engage()
         stage_update_button.config(state='normal')
@@ -704,7 +758,7 @@ def main():
         else:
             spim.engage()
             spim.stage(-5)
-            time.sleep(2)
+            plt.pause(2)
             spim.disengage()
 
     def stagerr():
@@ -720,42 +774,93 @@ def main():
         spim.exp = exposure_input.get() / 1000
         spim.sendcfg()
         for camera in cam_list:
-            trigger.configure_trigger(camera)
+            Tr.configure_trigger(camera)
 
     def set_continuous():
         trigger_mode_button.config(state='normal')
         single_trigger_button.config(state='disabled')
         software_trigger_button.config(state='disabled')
         for count, camera in enumerate(cam_list):
-            trigger.reset_trigger(nodemap[count])
+            Tr.reset_trigger(nodemap[count])
 
-    def set_hardware_trigger():
+    def trigger():
         spim.exp = exposure_input.get() / 1000
         spim.sendcfg()
         print(spim.exp)
         spim.ard.write('FRM2\r')
 
     # --------------------
+    restart = [0]
+    first = 0
+    auto = [0]
 
-    while not restart:
+    while restart[0] == 0:
 
+        spim = so.SPIMMM()
+
+        offlaser1()
+        offlaser2()
+
+        restart[0] = 1
+        # Retrieve singleton reference to system object
+        system = PySpin.System.GetInstance()
+
+        # Get current library version
+        version = system.GetLibraryVersion()
+        print ('Library version: %d.%d.%d.%d' % (version.major, version.minor, version.type, version.build))
+
+        # Retrieve list of cameras from the system
+        cam_list = system.GetCameras()
+        num_cameras = cam_list.GetSize()
+        # if first == 0:
+        #    num = user_selection(cam_list, num_cameras)
+        # Pick the camera from the list
+        # cam = cam_list[num]
+
+        # Initialize camera
+        for cam in cam_list:
+            cam.Init()
+
+        nodemap_tldevice = [cam.GetTLDeviceNodeMap() for cam in cam_list]
+
+        # Retrieve GenICam nodemap
+        nodemap = [cam.GetNodeMap() for cam in cam_list]
+
+        # Setting initial values for exposure time and gain
+        for row, cam in enumerate(cam_list):
+            expo.configure_exposure2(cam, 10000)
+            expo.gain(cam, 4)
+            Tr.reset_trigger(nodemap[row])
+
+        # Setting up the camera for acquisition
+        for row in range(num_cameras):
+            create_window(cam_list[row], nodemap[row])
+
+        # Array to store the values for contrast, brightness and time exposure in us
+        aux = np.array([1., 0., 10000, 4., 1., 0])
+        aux2 = np.array([1., 0., 10000, 4., 1., 0])
+
+        # Initiating the window for the preview's GUI
         window = Tk()
         window.title('Single Plane Illumination Magnetic Micro Manipulator')
         window.geometry("1300x700")
 
-        restart = True
-
-        def integer_check(inp):
+        # Defining functions to validate entries----
+        def correct(inp):
             if inp.isdigit() or inp == '':
                 return True
             else:
                 return False
 
-        def float_check(inp):
+        reg = window.register(correct)
+
+        def correctf(inp):
             if inp.replace(".", "", 1).isdigit() or inp == '':
                 return True
             else:
                 return False
+
+        regf = window.register(correctf)
 
         def correctfn(inp):
 
@@ -767,69 +872,34 @@ def main():
             else:
                 return inp.replace(".", "", 1).isdigit()
 
-        def exit_window():
-            stop[0] = 0
-            cam1_params[-1] = 1
-            set_continuous()
-            time.sleep(0.2)
-            window.destroy()
-
-        pyspin = PySpin.System.GetInstance()
-        cam_list = pyspin.GetCameras()
-        for cam in cam_list:
-            cam.Init()
-        nodemap = [cam.GetNodeMap() for cam in cam_list]
-
-        num_cameras = cam_list.GetSize()
-
-        version = pyspin.GetLibraryVersion()
-        print ('pyspin version: %d.%d.%d.%d' % (version.major, version.minor, version.type, version.build))
-
-        # Setting initial values for exposure time and gain
-        for row, cam in enumerate(cam_list):
-            expo.configure_exposure2(cam, 10000)
-            expo.gain(cam, 4)
-            trigger.reset_trigger(nodemap[row])
-
-        # Setting up the camera for acquisition
-        for row in range(num_cameras):
-            setup_camera(cam_list[row], nodemap[row])
-
-        window.protocol('WM_DELETE_WINDOW', exit_window)
-
-        reg = window.register(integer_check)
-        regf = window.register(float_check)
         regfn = window.register(correctfn)
 
         camera_display = [IntVar() for cam in cam_list]
 
         for row, cam in enumerate(cam_list):
+
             nodemap2 = cam.GetTLDeviceNodeMap()
+
             node_device_information = PySpin.CCategoryPtr(nodemap2.GetNode('DeviceInformation'))
+
             if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
                 features = node_device_information.GetFeatures()
                 node_feature = PySpin.CValuePtr(features[0])
-                Checkbutton(window, text="cam: %s" % node_feature.ToString(), variable=camera_display[row]).place(
-                    x=20 + row * 100, y=520)
+                Checkbutton(window, text="cam: %s" % node_feature.ToString(), variable=camera_display[row]).place(x=20 + row * 100,
+                                                                                                                  y=520)
 
-        full_image_shape = np.shape(acquire_images(cam_list[0], nodemap[0]))
+        dim = np.shape(acquire_images(cam_list[0], nodemap_tldevice[0]))
 
-        image5 = [
-            np.clip(cam1_params[0] * cv2.resize(acquire_images(cam_list[row], nodemap[row]), None, fx=0.25, fy=0.25,
-                                                interpolation=cv2.INTER_CUBIC) ** (cam1_params[4]) + cam1_params[1], 0,
-                    255) for row in range(num_cameras)]
+        image5 = [np.clip(aux[0] * cv2.resize(acquire_images(cam_list[row], nodemap_tldevice[row]), None, fx=0.25, fy=0.25,
+                                              interpolation=cv2.INTER_CUBIC) ** (aux[4]) + aux[1], 0, 255) for row in
+                  range(num_cameras)]
 
-        blank_image_rgb_16b = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1], 3), dtype=np.uint16)
+        image7 = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1], 3), dtype=np.int16)
         for row in range(num_cameras):
             if camera_display[row].get() == 1:
-                blank_image_rgb_16b[:, :, row] = image5[row]
+                image7[:, :, row] = image5[row]
 
-        blank_image_rgb_8b = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1], 3), dtype=np.uint8)
-        for camera in range(num_cameras):
-            if camera_display[camera].get() == 1:
-                blank_image_rgb_8b[:, :, camera] = image5[camera]
-
-        display_image = ImageTk.PhotoImage(Image.fromarray(blank_image_rgb_8b, mode="RGB"), master=window)
+        image6 = [ImageTk.PhotoImage(Image.fromarray(image7, mode="RGB"), master=window)]
 
         # Creating the canvas for the image
         canvas = Canvas(window, width=image5[0].shape[1] + 25, height=image5[0].shape[0] + 25)
@@ -883,29 +953,25 @@ def main():
         cam1_gamma_label = Label(window, text="Gamma", bg="yellow")
         cam1_gamma_label.place(x=700, y=30)
 
-        cam1_gamma_field = Entry(window, textvariable=cam1_gamma, width=10, validate="key",
-                                 validatecommand=(regf, '%P'))
+        cam1_gamma_field = Entry(window, textvariable=cam1_gamma, width=10, validate="key", validatecommand=(regf, '%P'))
         cam1_gamma_field.place(x=630, y=30)
 
         cam1_contrast_label = Label(window, text="Contrast", bg="yellow")
         cam1_contrast_label.place(x=700, y=60)
 
-        cam1_contrast_field = Entry(window, textvariable=cam1_contrast, width=10, validate="key",
-                                    validatecommand=(regf, '%P'))
+        cam1_contrast_field = Entry(window, textvariable=cam1_contrast, width=10, validate="key", validatecommand=(regf, '%P'))
         cam1_contrast_field.place(x=630, y=60)
 
         cam1_brightness_label = Label(window, text="Brightness", bg="yellow")
         cam1_brightness_label.place(x=835, y=30)
 
-        cam1_brightness_field = Entry(window, textvariable=cam1_brightness, width=10, validate="key",
-                                      validatecommand=(regfn, '%P'))
+        cam1_brightness_field = Entry(window, textvariable=cam1_brightness, width=10, validate="key", validatecommand=(regfn, '%P'))
         cam1_brightness_field.place(x=765, y=30)
 
         cam1_exposure_label = Label(window, text="Exposure time in us", bg="yellow")
         cam1_exposure_label.place(x=835, y=60)
 
-        cam1_exposure_field = Entry(window, textvariable=cam1_exposure, width=10, validate="key",
-                                    validatecommand=(reg, '%P'))
+        cam1_exposure_field = Entry(window, textvariable=cam1_exposure, width=10, validate="key", validatecommand=(reg, '%P'))
         cam1_exposure_field.place(x=765, y=60)
 
         cam1_gain_label = Label(window, text="Gain in Db", bg="yellow")
@@ -922,29 +988,25 @@ def main():
         cam2_gamma_label = Label(window, text="Gamma", bg="yellow")
         cam2_gamma_label.place(x=700, y=130)
 
-        cam2_gamma_field = Entry(window, textvariable=cam2_gamma, width=10, validate="key",
-                                 validatecommand=(regf, '%P'))
+        cam2_gamma_field = Entry(window, textvariable=cam2_gamma, width=10, validate="key", validatecommand=(regf, '%P'))
         cam2_gamma_field.place(x=630, y=130)
 
         cam2_contrast_label = Label(window, text="Contrast", bg="yellow")
         cam2_contrast_label.place(x=700, y=160)
 
-        cam2_contrast_field = Entry(window, textvariable=cam2_contrast, width=10, validate="key",
-                                    validatecommand=(regf, '%P'))
+        cam2_contrast_field = Entry(window, textvariable=cam2_contrast, width=10, validate="key", validatecommand=(regf, '%P'))
         cam2_contrast_field.place(x=630, y=160)
 
         cam2_brightness_label = Label(window, text="Brightness", bg="yellow")
         cam2_brightness_label.place(x=835, y=130)
 
-        cam2_brightness_field = Entry(window, textvariable=cam2_brightness, width=10, validate="key",
-                                      validatecommand=(regfn, '%P'))
+        cam2_brightness_field = Entry(window, textvariable=cam2_brightness, width=10, validate="key", validatecommand=(regfn, '%P'))
         cam2_brightness_field.place(x=765, y=130)
 
         cam2_exposure_label = Label(window, text="Exposure time in us", bg="yellow")
         cam2_exposure_label.place(x=835, y=160)
 
-        cam2_exposure_field = Entry(window, textvariable=cam2_exposure, width=10, validate="key",
-                                    validatecommand=(reg, '%P'))
+        cam2_exposure_field = Entry(window, textvariable=cam2_exposure, width=10, validate="key", validatecommand=(reg, '%P'))
         cam2_exposure_field.place(x=765, y=160)
 
         cam2_gain_label = Label(window, text="Gain in Db", bg="yellow")
@@ -1192,6 +1254,7 @@ def main():
         yellow_power_input.place(x=1090, y=450)
 
         # Stage
+
         stage_control_block_label = Label(window, text='stage control', bg='Cyan')
         stage_control_block_label.place(x=960, y=490)
 
@@ -1231,7 +1294,7 @@ def main():
         trigger_block_label.place(x=960, y=600)
         trigger_mode_button = Button(window, text="Triggering mode", command=set_trigger)
         trigger_mode_button.place(x=930, y=630)
-        single_trigger_button = Button(window, text="Trigger", command=set_hardware_trigger, state='disabled')
+        single_trigger_button = Button(window, text="Trigger", command=trigger, state='disabled')
         single_trigger_button.place(x=880, y=630)
         software_trigger_button = Button(window, text="Software Trigger", command=set_continuous, state='disabled')
         software_trigger_button.place(x=1030, y=630)
@@ -1311,7 +1374,7 @@ def main():
 
         for row in range(0, rows):
             for col in range(0, columns):
-                if not first:
+                if first == 0:
                     value[row][col].set('')
                 if row == 0:
                     heading[row][col] = Entry(frame_buttons, textvariable=value[row][col], width=12)
@@ -1335,83 +1398,107 @@ def main():
         # ----------------------
 
         # Placing the first image in the canvas
-        image_on_canvas = canvas.create_image(20, 20, anchor=NW, image=display_image)
-        blank_image = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1]), dtype=np.int8)
+        image_on_canvas = canvas.create_image(20, 20, anchor=NW, image=image6[0])
 
-        def acquire_and_update():
-            while cam1_params[-1] != 1:
+        image7_aux = np.zeros((np.shape(image5[0])[0], np.shape(image5[0])[1]), dtype=np.int8)
+
+        def main_loop():
+
+            while aux[-1] != 1:
+
                 while stop[0] == 1:
                     pass
 
                 # Acquiring the new image, changing contrast and brightness, and changing its format so that it's
                 # compatible with tkinter
-                cam1_acquire = acquire_images(cam_list[0], nodemap[0])
-                cam2_acquire = acquire_images(cam_list[1], nodemap[1])
-                cam1_processed = np.clip(
-                    cam1_params[0] * cv2.resize(cam1_acquire, None, fx=0.25, fy=0.25,
-                                                interpolation=cv2.INTER_CUBIC) ** (cam1_params[4]) +
-                    cam1_params[1], 0, 255)
-                cam2_processed = np.clip(
-                    cam2_params[0] * cv2.resize(cam2_acquire, None, fx=0.25, fy=0.25,
-                                                interpolation=cv2.INTER_CUBIC) ** (
-                        cam2_params[4]) + cam2_params[1], 0, 255)
+                # time.sleep(3)
+                aux_thing1 = acquire_images(cam_list[0], nodemap_tldevice[0])
+                aux_thing2 = acquire_images(cam_list[1], nodemap_tldevice[1])
+                thing1 = np.clip(
+                    aux[0] * cv2.resize(aux_thing1, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (aux[4]) +
+                    aux[1], 0, 255)
+                thing2 = np.clip(
+                    aux2[0] * cv2.resize(aux_thing2, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC) ** (
+                        aux2[4]) + aux2[1], 0, 255)
+
+                # image8[0] = np.clip(aux[0] * acquire_images(cam_list[1], nodemap_tldevice[1]) ** (aux[4])+ aux[1], 0,
+                # 255)
 
                 if camera_display[0].get() == 1:
-                    blank_image_rgb_8b[:, :, 1] = np.copy(cam1_processed)
+                    image7[:, :, 1] = np.copy(thing1)
                 else:
-                    blank_image_rgb_8b[:, :, 1] = np.copy(blank_image)
+                    image7[:, :, 1] = np.copy(image7_aux)
 
                 if camera_display[1].get() == 1:
-                    blank_image_rgb_8b[:, :, 0] = np.copy(cam2_processed)
+                    image7[:, :, 0] = np.copy(thing2)
                 else:
-                    blank_image_rgb_8b[:, :, 0] = np.copy(blank_image)
+                    image7[:, :, 0] = np.copy(image7_aux)
 
-                time.sleep(delay_time)
+                plt.pause(delay[0])
 
-                tk_display_image = ImageTk.PhotoImage(Image.fromarray(blank_image_rgb_8b, "RGB"), master=window)
-                canvas.itemconfigure(image_on_canvas, image=tk_display_image)
+                # image72 = cv2.resize(image_data, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC)
+
+                image6_innerfunction_fr293 = [ImageTk.PhotoImage(Image.fromarray(image7, "RGB"), master=window)]
+                # Changing the image on the canvas
+                canvas.itemconfigure(image_on_canvas, image=image6_innerfunction_fr293[0])
+                # update the temperature readout
                 temperature_readout.configure(text="Bath temp: %s" % spim.tempm)
                 if spim.ont:
                     temperature_readout.configure(bg='green')
                 else:
                     temperature_readout.configure(bg='red')
 
-        acquire_and_update_thread = threading.Thread(target=acquire_and_update)
-        acquire_and_update_thread.start()
+        # function to close the window and leave the devices in the right state
+        def exit_window():
+            stop[0] = 0
+            aux[-1] = 1
+            set_continuous()
+            plt.pause(0.2)
+            window.destroy()
+
+        window.protocol('WM_DELETE_WINDOW', exit_window)
+
+        thread = threading.Thread(target=main_loop)
+        thread.start()
 
         window.mainloop()
-        cam1_params[-1] = 1
-        time.sleep(1)
-        acquire_and_update_thread.join()
+        aux[-1] = 1
+        plt.pause(1)
+        thread.join()
 
         # Terminating the camera
-        # Clear camera list before releasing pyspin
-        # Release pyspin instance
+
         for row, cam in enumerate(cam_list):
             terminate(cam)
             cam = None
+
+        # Clear camera list before releasing system
         cam_list.Clear()
-        pyspin.ReleaseInstance()
-        del pyspin
+
+        # Release system instance
+        system.ReleaseInstance()
+
+        del system
 
         offlaser1()
         offlaser2()
+        spim.engage()
         raisestage()
         spim.disengage()
         spim.halttempcont()
         spim.close_ports()
 
-        if auto == 1:
-            sae.run_automated_experiment()
-            restart = False
-        if auto == 2:
-            sae.run_automated_experiment(2, experiment_params[0])
-            restart = False
-        auto = 0
-        first = True
-
+        if auto[0] == 1:
+            sae.function()
+            restart[0] = 0
+        if auto[0] == 2:
+            sae.function(2, params2[0])
+            restart[0] = 0
+        auto[0] = 0
+        first = 1
 
     print('spim GUI successfully exited')
+
     return True
 
 
