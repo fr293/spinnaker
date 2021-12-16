@@ -678,26 +678,6 @@ def main():
 
     # Laser control functions
 
-    def onlaser1():
-        spim.open_ports()
-        spim.lst1 = True
-        spim.laser_power()
-
-    def onlaser2():
-        spim.open_ports()
-        spim.lst2 = True
-        spim.laser_power()
-
-    def offlaser1():
-        spim.lst1 = False
-        spim.laser_power()
-        spim.las1.close()
-
-    def offlaser2():
-        spim.lst2 = False
-        spim.laser_power()
-        spim.las2.close()
-
     def powlaser1():
         power = float(yellow_power_input.get()) / 1000.
         spim.pwr1 = power
@@ -709,7 +689,6 @@ def main():
         spim.laser_power()
 
     def laser():
-        spim.open_ports()
         spim.pwr1 = float(yellow_power_input.get()) / 1000.
         spim.pwr2 = float(yellow_power_input.get()) / 1000.
 
@@ -728,7 +707,7 @@ def main():
     # Stage control
 
     def mirror():
-        spim.posadj = float(stage_pos_input.get())
+        spim.setpos = float(spim.pos)
 
     def stage():
         pos = float(stage_pos_input.get())
@@ -740,8 +719,6 @@ def main():
 
     def engage():
         stage_engage_button.config(state='disabled')
-        spim.rbt()
-        plt.pause(3)
         stage_disengage_button.config(state='normal')
         spim.engage()
         stage_update_button.config(state='normal')
@@ -749,17 +726,20 @@ def main():
     def disengage():
         stage_disengage_button.config(state='disabled')
         stage_engage_button.config(state='normal')
-        spim.engage()
+        spim.disengage()
         stage_update_button.config(state='disabled')
 
     def raisestage():
         if spim.eng:
-            spim.stage(-5)
+            spim.stage(-6)
+            spim.disengage()
         else:
             spim.engage()
-            spim.stage(-5)
-            plt.pause(2)
+            spim.stage(-6)
             spim.disengage()
+        stage_engage_button.config(state='normal')
+        stage_disengage_button.config(state='disabled')
+        stage_update_button.config(state='disabled')
 
     def stagerr():
         error_code = spim.err()[-2]
@@ -798,8 +778,7 @@ def main():
 
         spim = so.SPIMMM()
 
-        offlaser1()
-        offlaser2()
+        spim.rbt()
 
         restart[0] = 1
         # Retrieve singleton reference to system object
@@ -1264,21 +1243,21 @@ def main():
         mirror_track_input = IntVar()
         mirror_track_input.set(0)
 
-        stage_update_button = Button(window, text="Set stage to:", command=stage, state='disabled')
+        stage_update_button = Button(window, text="Set stage to:", command=stage)
         stage_update_button.place(x=890, y=520)
 
         stage_position_input = Entry(window, textvariable=stage_pos_input, width=10, validate="key",
                                      validatecommand=(regfn, '%P'))
         stage_position_input.place(x=970, y=523)
 
-        stage_engage_button = Button(window, text='Engage', command=engage)
+        stage_engage_button = Button(window, text='Engage', command=engage, state='disabled')
         stage_engage_button.place(x=890, y=550)
 
-        stage_disengage_button = Button(window, text='Disengage', command=disengage, state='disabled')
+        stage_disengage_button = Button(window, text='Disengage', command=disengage)
         stage_disengage_button.place(x=940, y=550)
 
-        rename_stage_button = Button(window, text='Raise', command=raisestage)
-        rename_stage_button.place(x=1020, y=550)
+        raise_stage_button = Button(window, text='Raise', command=raisestage)
+        raise_stage_button.place(x=1020, y=550)
 
         stage_error_button = Button(window, text='Error:', command=stagerr)
         stage_error_button.place(x=1090, y=550)
@@ -1286,7 +1265,8 @@ def main():
         stage_error_label = Label(window, text='      ', bg='White')
         stage_error_label.place(x=1133, y=553)
 
-        mirror_track_checkbox = Checkbutton(window, text='mirror tracking', variable=mirror_track_input, command=mirror)
+        mirror_track_checkbox = Checkbutton(window, text='mirror tracking: set at sample near side',
+                                            variable=mirror_track_input, command=mirror)
         mirror_track_checkbox.place(x=1050, y=520)
 
         # Trigger
@@ -1440,16 +1420,20 @@ def main():
 
                 image6_innerfunction_fr293 = [ImageTk.PhotoImage(Image.fromarray(image7, "RGB"), master=window)]
                 # Changing the image on the canvas
-                canvas.itemconfigure(image_on_canvas, image=image6_innerfunction_fr293[0])
+                # canvas.itemconfigure(image_on_canvas, image=image6_innerfunction_fr293[0])
                 # update the temperature readout
-                temperature_readout.configure(text="Bath temp: %s" % spim.tempm)
-                if spim.ont:
-                    temperature_readout.configure(bg='green')
-                else:
-                    temperature_readout.configure(bg='red')
+                # temperature_readout.configure(text="Bath temp: %s" % spim.tempm)
+                # if spim.ont:
+                #     temperature_readout.configure(bg='green')
+                # else:
+                #     temperature_readout.configure(bg='red')
 
         # function to close the window and leave the devices in the right state
         def exit_window():
+            spim.laser_shutdown()
+            raisestage()
+            spim.halttempcont()
+            spim.close_ports()
             stop[0] = 0
             aux[-1] = 1
             set_continuous()
@@ -1479,14 +1463,6 @@ def main():
         system.ReleaseInstance()
 
         del system
-
-        offlaser1()
-        offlaser2()
-        spim.engage()
-        raisestage()
-        spim.disengage()
-        spim.halttempcont()
-        spim.close_ports()
 
         if auto[0] == 1:
             sae.function()
