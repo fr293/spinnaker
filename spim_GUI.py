@@ -781,15 +781,15 @@ def main():
         spim.rbt()
 
         restart[0] = 1
-        # Retrieve singleton reference to system object
-        system = PySpin.System.GetInstance()
+        # Retrieve singleton reference to camera_system object
+        camera_system = PySpin.System.GetInstance()
 
         # Get current library version
-        version = system.GetLibraryVersion()
+        version = camera_system.GetLibraryVersion()
         print ('Library version: %d.%d.%d.%d' % (version.major, version.minor, version.type, version.build))
 
-        # Retrieve list of cameras from the system
-        cam_list = system.GetCameras()
+        # Retrieve list of cameras from the camera_system
+        cam_list = camera_system.GetCameras()
         num_cameras = cam_list.GetSize()
         # if first == 0:
         #    num = user_selection(cam_list, num_cameras)
@@ -1456,13 +1456,13 @@ def main():
             terminate(cam)
             cam = None
 
-        # Clear camera list before releasing system
+        # Clear camera list before releasing camera_system
         cam_list.Clear()
 
-        # Release system instance
-        system.ReleaseInstance()
+        # Release camera_system instance
+        camera_system.ReleaseInstance()
 
-        del system
+        del camera_system
 
         if auto[0] == 1:
             sae.function()
